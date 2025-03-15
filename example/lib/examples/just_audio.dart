@@ -17,7 +17,9 @@ class JustAudioExample extends StatefulWidget {
 
 class _JustAudioExampleState extends State<JustAudioExample> {
   final _player = AudioPlayer();
-  late final httpCacheStream = HttpCacheManager.instance.createStream(widget.sourceUrl);
+  late final httpCacheStream = HttpCacheManager.instance.createStream(
+    widget.sourceUrl,
+  );
 
   @override
   void initState() {
@@ -42,16 +44,19 @@ class _JustAudioExampleState extends State<JustAudioExample> {
   void dispose() {
     super.dispose();
     _player.dispose().whenComplete(() {
-      return httpCacheStream.dispose(); //Dispose the cache stream after the player is disposed
+      return httpCacheStream
+          .dispose(); //Dispose the cache stream after the player is disposed
     });
   }
 
-  Stream<PositionData> get _positionDataStream => Rx.combineLatest3<Duration, Duration, Duration?, PositionData>(
-    _player.positionStream,
-    _player.bufferedPositionStream,
-    _player.durationStream,
-    (position, bufferedPosition, duration) => PositionData(position, bufferedPosition, duration ?? Duration.zero),
-  );
+  Stream<PositionData> get _positionDataStream =>
+      Rx.combineLatest3<Duration, Duration, Duration?, PositionData>(
+        _player.positionStream,
+        _player.bufferedPositionStream,
+        _player.durationStream,
+        (position, bufferedPosition, duration) =>
+            PositionData(position, bufferedPosition, duration ?? Duration.zero),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -94,14 +99,32 @@ class ControlButtons extends StatelessWidget {
         final playerState = snapshot.data;
         final processingState = playerState?.processingState;
         final playing = playerState?.playing;
-        if (processingState == ProcessingState.loading || processingState == ProcessingState.buffering) {
-          return Container(margin: const EdgeInsets.all(8.0), width: 64.0, height: 64.0, child: const CircularProgressIndicator());
+        if (processingState == ProcessingState.loading ||
+            processingState == ProcessingState.buffering) {
+          return Container(
+            margin: const EdgeInsets.all(8.0),
+            width: 64.0,
+            height: 64.0,
+            child: const CircularProgressIndicator(),
+          );
         } else if (playing != true) {
-          return IconButton(icon: const Icon(Icons.play_arrow), iconSize: 64.0, onPressed: player.play);
+          return IconButton(
+            icon: const Icon(Icons.play_arrow),
+            iconSize: 64.0,
+            onPressed: player.play,
+          );
         } else if (processingState != ProcessingState.completed) {
-          return IconButton(icon: const Icon(Icons.pause), iconSize: 64.0, onPressed: player.pause);
+          return IconButton(
+            icon: const Icon(Icons.pause),
+            iconSize: 64.0,
+            onPressed: player.pause,
+          );
         } else {
-          return IconButton(icon: const Icon(Icons.replay), iconSize: 64.0, onPressed: () => player.seek(Duration.zero));
+          return IconButton(
+            icon: const Icon(Icons.replay),
+            iconSize: 64.0,
+            onPressed: () => player.seek(Duration.zero),
+          );
         }
       },
     );

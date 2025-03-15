@@ -14,7 +14,11 @@ class CustomHttpClient {
     _client.idleTimeout = const Duration(seconds: 30);
   }
 
-  Future<HttpClientResponse> getUrl(Uri url, IntRange range, Map<String, Object> requestHeaders) async {
+  Future<HttpClientResponse> getUrl(
+    Uri url,
+    IntRange range,
+    Map<String, Object> requestHeaders,
+  ) async {
     final request = await _client.getUrl(url);
     _formatRequest(request, requestHeaders);
     if (!range.isFull) {
@@ -22,7 +26,8 @@ class CustomHttpClient {
       request.headers.set(HttpHeaders.rangeHeader, rangeRequest.header);
       final response = await request.close();
       final rangeResponse = HttpRangeResponse.parse(response);
-      if (rangeResponse == null || !HttpRange.isEqual(rangeRequest, rangeResponse)) {
+      if (rangeResponse == null ||
+          !HttpRange.isEqual(rangeRequest, rangeResponse)) {
         throw InvalidRangeRequestException(url, rangeRequest, rangeResponse);
       }
       return response;
@@ -35,7 +40,10 @@ class CustomHttpClient {
     }
   }
 
-  Future<HttpClientResponse> headUrl(Uri url, [Map<String, Object>? requestHeaders]) async {
+  Future<HttpClientResponse> headUrl(
+    Uri url, [
+    Map<String, Object>? requestHeaders,
+  ]) async {
     final request = await _client.headUrl(url);
     _formatRequest(request, requestHeaders ?? const {});
     final response = await request.close();
@@ -48,7 +56,9 @@ class CustomHttpClient {
   void _formatRequest(HttpClientRequest request, Map<String, Object> headers) {
     request.maxRedirects = 20;
     request.followRedirects = true;
-    request.headers.removeAll(HttpHeaders.acceptEncodingHeader); //Remove the accept encoding header to prevent compression
+    request.headers.removeAll(
+      HttpHeaders.acceptEncodingHeader,
+    ); //Remove the accept encoding header to prevent compression
     headers.forEach(request.headers.set);
   }
 

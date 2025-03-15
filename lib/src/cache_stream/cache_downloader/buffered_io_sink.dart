@@ -7,7 +7,10 @@ import 'dart:typed_data';
 class BufferedIOSink {
   final File file;
   final int start;
-  BufferedIOSink(this.file, {this.start = 0}) : _sink = file.openWrite(mode: start > 0 ? FileMode.append : FileMode.write);
+  BufferedIOSink(this.file, {this.start = 0})
+    : _sink = file.openWrite(
+        mode: start > 0 ? FileMode.append : FileMode.write,
+      );
   final IOSink _sink;
 
   final _buffer = BytesBuilder(copy: false);
@@ -30,7 +33,8 @@ class BufferedIOSink {
     }
     try {
       _sink.add(_buffer.takeBytes()); //Add the buffer to the sink and clear it
-      await (_flushFuture = _sink.flush()); //Set the flush future and wait for it to complete
+      await (_flushFuture =
+          _sink.flush()); //Set the flush future and wait for it to complete
     } finally {
       _flushFuture = null; //Reset the flush future
     }

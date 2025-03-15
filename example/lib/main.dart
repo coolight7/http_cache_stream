@@ -59,11 +59,36 @@ class _Body extends StatelessWidget {
       children: [
         _BuildButton(
           'audioplayers',
-          AudioPlayersExample(Uri.parse('https://dovetail.prxu.org/70/66673fd4-6851-4b90-a762-7c0538c76626/CoryCombs_2021T_VO_Intro.mp3')),
+          AudioPlayersExample(
+            Uri.parse(
+              'https://dovetail.prxu.org/70/66673fd4-6851-4b90-a762-7c0538c76626/CoryCombs_2021T_VO_Intro.mp3',
+            ),
+          ),
         ),
-        _BuildButton('just_audio', JustAudioExample(Uri.parse('https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3'))),
-        _BuildButton('video_player', VideoPlayerExample(Uri.parse('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4'))),
-        _BuildButton('Pre-Cache URL', PreCacheUrl(Uri.parse('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4'))),
+        _BuildButton(
+          'just_audio',
+          JustAudioExample(
+            Uri.parse(
+              'https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3',
+            ),
+          ),
+        ),
+        _BuildButton(
+          'video_player',
+          VideoPlayerExample(
+            Uri.parse(
+              'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+            ),
+          ),
+        ),
+        _BuildButton(
+          'Pre-Cache URL',
+          PreCacheUrl(
+            Uri.parse(
+              'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+            ),
+          ),
+        ),
         Divider(),
         OutlinedButton(
           onPressed: () {
@@ -101,7 +126,9 @@ class __BuildButtonState extends State<_BuildButton> {
               _enabled = !_enabled;
             });
           },
-          child: Text(_enabled ? 'Close ${widget.label}' : 'Build ${widget.label}'),
+          child: Text(
+            _enabled ? 'Close ${widget.label}' : 'Build ${widget.label}',
+          ),
         ),
         if (_enabled) widget.child,
       ],

@@ -17,8 +17,18 @@ class LiveDownloadStream extends Stream<List<int>> {
     void Function()? onDone,
     bool? cancelOnError,
   }) {
-    final downloader = _LiveDownloadStream(downloadUri, range, config, cancelOnError: cancelOnError ?? true);
-    return downloader.stream.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+    final downloader = _LiveDownloadStream(
+      downloadUri,
+      range,
+      config,
+      cancelOnError: cancelOnError ?? true,
+    );
+    return downloader.stream.listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
   }
 }
 
@@ -29,7 +39,12 @@ class _LiveDownloadStream {
   final bool? cancelOnError;
   final _controller = StreamController<List<int>>(sync: true);
   final _httpClient = CustomHttpClient();
-  _LiveDownloadStream(this.downloadUri, this.range, this.config, {this.cancelOnError}) {
+  _LiveDownloadStream(
+    this.downloadUri,
+    this.range,
+    this.config, {
+    this.cancelOnError,
+  }) {
     _controller.onListen = () {
       _controller.onListen = null;
       _start();
@@ -42,7 +57,11 @@ class _LiveDownloadStream {
 
   void _start() async {
     try {
-      final response = await _httpClient.getUrl(downloadUri, range, config.combinedRequestHeaders());
+      final response = await _httpClient.getUrl(
+        downloadUri,
+        range,
+        config.combinedRequestHeaders(),
+      );
       await _controller.addStream(response, cancelOnError: cancelOnError);
     } catch (e) {
       if (!_controller.isClosed && _controller.hasListener) {

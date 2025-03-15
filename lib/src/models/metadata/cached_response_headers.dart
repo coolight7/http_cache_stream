@@ -25,7 +25,8 @@ class CachedResponseHeaders {
       return !nextLastModified.isAfter(previousLastModified);
     }
     return !_headers.entries.any((entry) {
-      return entry.key != HttpHeaders.dateHeader && !next.equals(entry.key, entry.value.firstOrNull);
+      return entry.key != HttpHeaders.dateHeader &&
+          !next.equals(entry.key, entry.value.firstOrNull);
     });
   }
 
@@ -34,15 +35,21 @@ class CachedResponseHeaders {
   }
 
   ///If the host supports range requests.
-  late final bool acceptsRangeRequests = equals(HttpHeaders.acceptRangesHeader, 'bytes');
+  late final bool acceptsRangeRequests = equals(
+    HttpHeaders.acceptRangesHeader,
+    'bytes',
+  );
 
   bool shouldRevalidate() {
     final expirationDateTime = this.expirationDateTime;
-    return expirationDateTime == null || DateTime.now().isAfter(expirationDateTime);
+    return expirationDateTime == null ||
+        DateTime.now().isAfter(expirationDateTime);
   }
 
   DateTime? get expirationDateTime {
-    final expiresHeaderDateTime = parseHeaderDateTime(HttpHeaders.expiresHeader);
+    final expiresHeaderDateTime = parseHeaderDateTime(
+      HttpHeaders.expiresHeader,
+    );
     if (expiresHeaderDateTime != null) {
       return expiresHeaderDateTime;
     }
@@ -59,7 +66,9 @@ class CachedResponseHeaders {
 
   ContentType? get contentType {
     final contentTypeHeader = get(HttpHeaders.contentTypeHeader);
-    return contentTypeHeader == null ? null : ContentType.parse(contentTypeHeader);
+    return contentTypeHeader == null
+        ? null
+        : ContentType.parse(contentTypeHeader);
   }
 
   String? get eTag => get(HttpHeaders.etagHeader);
@@ -76,10 +85,12 @@ class CachedResponseHeaders {
 
   /// Returns true if the response is compressed or chunked. This means that the content length != source length, and the source length cannot be determined until the download is complete.
   bool get isCompressedOrChunked {
-    return equals(HttpHeaders.contentEncodingHeader, 'gzip') || equals(HttpHeaders.transferEncodingHeader, 'chunked');
+    return equals(HttpHeaders.contentEncodingHeader, 'gzip') ||
+        equals(HttpHeaders.transferEncodingHeader, 'chunked');
   }
 
-  DateTime? get lastModified => parseHeaderDateTime(HttpHeaders.lastModifiedHeader);
+  DateTime? get lastModified =>
+      parseHeaderDateTime(HttpHeaders.lastModifiedHeader);
   DateTime? get responseDate => parseHeaderDateTime(HttpHeaders.dateHeader);
 
   ///Attempts to parse [DateTime] from the given [httpHeader].
@@ -87,7 +98,9 @@ class CachedResponseHeaders {
     final value = get(httpHeader);
     if (value == null || value.isEmpty) return null;
     try {
-      return HttpDate.parse(value); // Try to parse the date (not all servers return a valid date)
+      return HttpDate.parse(
+        value,
+      ); // Try to parse the date (not all servers return a valid date)
     } catch (e) {
       return null;
     }
@@ -117,7 +130,8 @@ class CachedResponseHeaders {
     });
     int? sourceLength;
     final responseRange = HttpRangeResponse.parse(response);
-    if (response.compressionState == HttpClientResponseCompressionState.decompressed) {
+    if (response.compressionState ==
+        HttpClientResponseCompressionState.decompressed) {
       headers[HttpHeaders.contentEncodingHeader] = ['gzip'];
     } else if (response.headers.chunkedTransferEncoding) {
       headers[HttpHeaders.transferEncodingHeader] = ['chunked'];
@@ -139,7 +153,10 @@ class CachedResponseHeaders {
   }
 
   ///Constructs a [CachedResponseHeaders] object from the given [uri] by sending a HEAD request.
-  static Future<CachedResponseHeaders> fromUri(Uri uri, [Map<String, Object>? headers]) async {
+  static Future<CachedResponseHeaders> fromUri(
+    Uri uri, [
+    Map<String, Object>? headers,
+  ]) async {
     final client = CustomHttpClient();
     try {
       final response = await client.headUrl(uri, headers);
@@ -157,7 +174,9 @@ class CachedResponseHeaders {
     final headers = {
       HttpHeaders.contentLengthHeader: [fileStat.size.toString()],
       HttpHeaders.acceptRangesHeader: ['bytes'],
-      HttpHeaders.contentTypeHeader: [lookupMimeType(file.path) ?? 'application/octet-stream'],
+      HttpHeaders.contentTypeHeader: [
+        lookupMimeType(file.path) ?? 'application/octet-stream',
+      ],
       HttpHeaders.lastModifiedHeader: [HttpDate.format(fileStat.modified)],
       HttpHeaders.dateHeader: [HttpDate.format(DateTime.now())],
     };
@@ -177,7 +196,8 @@ class CachedResponseHeaders {
     return _headers;
   }
 
-  void forEach(void Function(String, Object) action) => _headers.forEach(action);
+  void forEach(void Function(String, Object) action) =>
+      _headers.forEach(action);
 
   Map<String, List<String>> get headerMap => {..._headers};
 }

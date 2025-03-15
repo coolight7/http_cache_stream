@@ -11,7 +11,9 @@ class PreCacheUrl extends StatefulWidget {
 }
 
 class _PreCacheUrlState extends State<PreCacheUrl> {
-  late final httpCacheStream = HttpCacheManager.instance.createStream(widget.sourceUrl);
+  late final httpCacheStream = HttpCacheManager.instance.createStream(
+    widget.sourceUrl,
+  );
 
   @override
   void initState() {
@@ -22,7 +24,8 @@ class _PreCacheUrlState extends State<PreCacheUrl> {
   @override
   void dispose() {
     super.dispose();
-    httpCacheStream.dispose(); //Dispose the cacheStream when the player is disposed
+    httpCacheStream
+        .dispose(); //Dispose the cacheStream when the player is disposed
   }
 
   @override

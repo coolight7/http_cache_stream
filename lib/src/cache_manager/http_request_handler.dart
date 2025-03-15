@@ -18,14 +18,14 @@ class RequestHandler {
 
   void _awaitDone() async {
     httpRequest.response.bufferOutput = false;
-    httpRequest.response.statusCode = HttpStatus.internalServerError; //Set default status code to 500, in case of error
+    httpRequest.response.statusCode =
+        HttpStatus
+            .internalServerError; //Set default status code to 500, in case of error
     await httpRequest.response.done.catchError((_) {});
     _closed = true;
   }
 
-  void stream(
-    HttpCacheStream cacheStream,
-  ) async {
+  void stream(HttpCacheStream cacheStream) async {
     Object? error;
     try {
       final rangeRequest = HttpRangeRequest.parse(httpRequest);
@@ -65,14 +65,18 @@ class RequestHandler {
     String? contentTypeHeader;
     if (cacheHeaders != null) {
       if (cacheHeaders.acceptsRangeRequests) {
-        httpResponse.headers.set(HttpHeaders.acceptRangesHeader, 'bytes'); //Indicate that the server accepts range requests
+        httpResponse.headers.set(
+          HttpHeaders.acceptRangesHeader,
+          'bytes',
+        ); //Indicate that the server accepts range requests
       }
       contentTypeHeader = cacheHeaders.get(HttpHeaders.contentTypeHeader);
       if (cacheConfig.copyCachedResponseHeaders) {
         cacheHeaders.forEach(httpResponse.headers.set);
       }
     }
-    contentTypeHeader ??= lookupMimeType(httpRequest.uri.path) ?? 'application/octet-stream';
+    contentTypeHeader ??=
+        lookupMimeType(httpRequest.uri.path) ?? 'application/octet-stream';
     httpResponse.headers.set(HttpHeaders.contentTypeHeader, contentTypeHeader);
     cacheConfig.combinedResponseHeaders().forEach(httpResponse.headers.set);
 
@@ -83,9 +87,15 @@ class RequestHandler {
         sourceLength: streamResponse.sourceLength,
       );
       httpResponse.contentLength = rangeResponse.contentLength ?? -1;
-      httpResponse.headers.set(HttpHeaders.contentRangeHeader, rangeResponse.header);
+      httpResponse.headers.set(
+        HttpHeaders.contentRangeHeader,
+        rangeResponse.header,
+      );
       httpResponse.statusCode = HttpStatus.partialContent;
-      assert(HttpRange.isEqual(rangeRequest, rangeResponse), 'Invalid range: request: $rangeRequest | response: $rangeResponse ');
+      assert(
+        HttpRange.isEqual(rangeRequest, rangeResponse),
+        'Invalid range: request: $rangeRequest | response: $rangeResponse ',
+      );
     } else {
       httpResponse.contentLength = streamResponse.sourceLength ?? -1;
       httpResponse.statusCode = HttpStatus.ok;
@@ -98,7 +108,9 @@ class RequestHandler {
     if (error != null && !_streaming) {
       httpRequest.response.addError(error);
     }
-    httpRequest.response.close().ignore(); //Tell the client that the response is complete.
+    httpRequest.response
+        .close()
+        .ignore(); //Tell the client that the response is complete.
   }
 
   ///Indicates if the [HttpResponse] is closed. If true, no more data can be sent to the client.

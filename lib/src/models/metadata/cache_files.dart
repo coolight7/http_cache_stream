@@ -10,7 +10,11 @@ class CacheFiles {
   final File complete;
   final File partial;
   final File metadata;
-  const CacheFiles._({required this.complete, required this.partial, required this.metadata});
+  const CacheFiles._({
+    required this.complete,
+    required this.partial,
+    required this.metadata,
+  });
 
   List<File> get files => [complete, partial, metadata];
   List<String> get paths => [complete.path, partial.path, metadata.path];
@@ -57,7 +61,8 @@ class CacheFiles {
   }
 
   @override
-  String toString() => 'CacheFiles(complete: $complete, partial: $partial, metadata: $metadata)';
+  String toString() =>
+      'CacheFiles(complete: $complete, partial: $partial, metadata: $metadata)';
 }
 
 File _defaultCacheFile(Directory cacheDir, Uri sourceUrl) {
@@ -87,7 +92,9 @@ File _defaultCacheFile(Directory cacheDir, Uri sourceUrl) {
     if (outputFile.path.length > maxPathLength) {
       throw ('Generated file path exceeds maximum length of $maxPathLength characters');
     }
-    outputFile.parent.createSync(recursive: true); //Create parent directories if they don't exist. This also helps validate the path.
+    outputFile.parent.createSync(
+      recursive: true,
+    ); //Create parent directories if they don't exist. This also helps validate the path.
     return outputFile;
   } catch (e) {
     if (kDebugMode) print('Error generating default file path: $e');

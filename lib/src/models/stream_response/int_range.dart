@@ -2,7 +2,8 @@
 class IntRange {
   final int start;
   final int? end;
-  const IntRange([this.start = 0, this.end]) : assert(start >= 0 && (end == null || end >= start));
+  const IntRange([this.start = 0, this.end])
+    : assert(start >= 0 && (end == null || end >= start));
 
   static IntRange full() => const IntRange(0);
 
@@ -43,7 +44,8 @@ class IntRange {
   String toString() => 'IntRange($start, $end)';
 
   @override
-  bool operator ==(Object other) => other is IntRange && start == other.start && end == other.end;
+  bool operator ==(Object other) =>
+      other is IntRange && start == other.start && end == other.end;
 
   @override
   int get hashCode => start.hashCode ^ end.hashCode;

@@ -14,7 +14,9 @@ class CacheMetadata {
   factory CacheMetadata.construct(CacheFiles cacheFiles, Uri sourceUrl) {
     CachedResponseHeaders? headers;
     if (cacheFiles.metadata.existsSync()) {
-      final json = jsonDecode(cacheFiles.metadata.readAsStringSync()) as Map<String, dynamic>;
+      final json =
+          jsonDecode(cacheFiles.metadata.readAsStringSync())
+              as Map<String, dynamic>;
       headers = CachedResponseHeaders.fromJson(json['headers']);
     }
     headers ??= CachedResponseHeaders.fromFile(cacheFiles.complete);
@@ -29,7 +31,8 @@ class CacheMetadata {
     if (!metaDataFile.existsSync()) {
       return null;
     }
-    final json = jsonDecode(metaDataFile.readAsStringSync()) as Map<String, dynamic>;
+    final json =
+        jsonDecode(metaDataFile.readAsStringSync()) as Map<String, dynamic>;
     final urlValue = json['Url'];
     final sourceUrl = urlValue == null ? null : Uri.tryParse(urlValue);
     if (sourceUrl == null) return null;
@@ -56,13 +59,19 @@ class CacheMetadata {
       if (partialCacheSize <= 0) {
         return hasSourceLength ? 0.0 : null;
       } else if (partialCacheSize == sourceLength) {
-        partialCacheFile.renameSync(cacheFile.path); //Rename the partial cache to the complete cache
+        partialCacheFile.renameSync(
+          cacheFile.path,
+        ); //Rename the partial cache to the complete cache
         return 1.0;
-      } else if (!hasSourceLength || partialCacheSize > sourceLength || headers?.acceptsRangeRequests != true) {
-        partialCacheFile.delete(); //Reset the cache, since the download cannot be resumed
+      } else if (!hasSourceLength ||
+          partialCacheSize > sourceLength ||
+          headers?.acceptsRangeRequests != true) {
+        partialCacheFile
+            .delete(); //Reset the cache, since the download cannot be resumed
         return 0.0;
       } else {
-        return ((partialCacheSize / sourceLength) * 100).floor() / 100; //Round to 2 decimal places
+        return ((partialCacheSize / sourceLength) * 100).floor() /
+            100; //Round to 2 decimal places
       }
     } catch (e) {
       return null;
@@ -73,7 +82,10 @@ class CacheMetadata {
   bool get isComplete {
     final completeCacheSize = cacheFile.statSync().size;
     if (completeCacheSize > 0) {
-      assert(sourceLength == completeCacheSize, 'Complete cache size ($completeCacheSize) does not match source length ($sourceLength)');
+      assert(
+        sourceLength == completeCacheSize,
+        'Complete cache size ($completeCacheSize) does not match source length ($sourceLength)',
+      );
       return true;
     }
     return false;
@@ -108,7 +120,8 @@ class CacheMetadata {
   }
 
   @override
-  String toString() => 'CacheFileMetadata('
+  String toString() =>
+      'CacheFileMetadata('
       'Files: $cacheFiles, '
       'sourceUrl: $sourceUrl, '
       'sourceLength: $sourceLength';

@@ -17,7 +17,9 @@ class AudioPlayersExample extends StatefulWidget {
 
 class _AudioPlayersExampleState extends State<AudioPlayersExample> {
   final _player = AudioPlayer();
-  late final httpCacheStream = HttpCacheManager.instance.createStream(widget.sourceUrl);
+  late final httpCacheStream = HttpCacheManager.instance.createStream(
+    widget.sourceUrl,
+  );
 
   @override
   void initState() {
@@ -35,15 +37,17 @@ class _AudioPlayersExampleState extends State<AudioPlayersExample> {
   void dispose() {
     super.dispose();
     _player.dispose().whenComplete(() {
-      return httpCacheStream.dispose(); //Dispose the cache stream after the player is disposed
+      return httpCacheStream
+          .dispose(); //Dispose the cache stream after the player is disposed
     });
   }
 
-  Stream<PositionData> get _positionDataStream => Rx.combineLatest2<Duration, Duration, PositionData>(
-    _player.onPositionChanged,
-    _player.onDurationChanged,
-    (position, duration) => PositionData(position, position, duration),
-  );
+  Stream<PositionData> get _positionDataStream =>
+      Rx.combineLatest2<Duration, Duration, PositionData>(
+        _player.onPositionChanged,
+        _player.onDurationChanged,
+        (position, duration) => PositionData(position, position, duration),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -86,11 +90,23 @@ class ControlButtons extends StatelessWidget {
         final playerState = snapshot.data ?? player.state;
         switch (playerState) {
           case PlayerState.playing:
-            return IconButton(icon: const Icon(Icons.pause), iconSize: 64.0, onPressed: player.pause);
+            return IconButton(
+              icon: const Icon(Icons.pause),
+              iconSize: 64.0,
+              onPressed: player.pause,
+            );
           case PlayerState.paused || PlayerState.stopped:
-            return IconButton(icon: const Icon(Icons.play_arrow), iconSize: 64.0, onPressed: player.resume);
+            return IconButton(
+              icon: const Icon(Icons.play_arrow),
+              iconSize: 64.0,
+              onPressed: player.resume,
+            );
           case PlayerState.completed:
-            return IconButton(icon: const Icon(Icons.replay), iconSize: 64.0, onPressed: () => player.seek(Duration.zero));
+            return IconButton(
+              icon: const Icon(Icons.replay),
+              iconSize: 64.0,
+              onPressed: () => player.seek(Duration.zero),
+            );
           case PlayerState.disposed:
             throw UnimplementedError();
         }

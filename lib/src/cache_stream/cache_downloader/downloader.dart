@@ -169,7 +169,8 @@ class Downloader {
 }
 
 class DownloadException extends HttpException {
-  DownloadException(Uri uri, String message) : super('Download Exception: $message', uri: uri);
+  DownloadException(Uri uri, String message)
+    : super('Download Exception: $message', uri: uri);
 }
 
 class DownloadStoppedException extends DownloadException {
@@ -177,5 +178,6 @@ class DownloadStoppedException extends DownloadException {
 }
 
 class DownloadTimedOutException extends DownloadException {
-  DownloadTimedOutException(Uri uri, Duration duration) : super(uri, 'Timed out after $duration');
+  DownloadTimedOutException(Uri uri, Duration duration)
+    : super(uri, 'Timed out after $duration');
 }

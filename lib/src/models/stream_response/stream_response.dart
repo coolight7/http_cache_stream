@@ -68,13 +68,18 @@ class StreamResponse {
     int position,
     int? sourceLength,
   ) {
-    assert(position >= range.start, 'Position must be greater than or equal to range.start (pos: $position, start: ${range.start})');
+    assert(
+      position >= range.start,
+      'Position must be greater than or equal to range.start (pos: $position, start: ${range.start})',
+    );
     final requestEnd = range.end;
     final effectiveEnd = requestEnd ?? sourceLength;
     if (effectiveEnd != null && position >= effectiveEnd) {
       return StreamResponse.fromFile(range, partialCacheFile, sourceLength);
     }
-    if (requestEnd != null && requestEnd > position && (sourceLength == null || requestEnd < sourceLength)) {
+    if (requestEnd != null &&
+        requestEnd > position &&
+        (sourceLength == null || requestEnd < sourceLength)) {
       final streamEnd = requestEnd - position;
       dataStream = dataStream.transform(ByteLimitTransformer(streamEnd));
     }

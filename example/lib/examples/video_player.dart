@@ -15,7 +15,9 @@ class VideoPlayerExample extends StatefulWidget {
 
 class _VideoPlayerExampleState extends State<VideoPlayerExample> {
   late final VideoPlayerController _controller;
-  late final httpCacheStream = HttpCacheManager.instance.createStream(widget.sourceUrl);
+  late final httpCacheStream = HttpCacheManager.instance.createStream(
+    widget.sourceUrl,
+  );
 
   @override
   void initState() {
@@ -37,7 +39,8 @@ class _VideoPlayerExampleState extends State<VideoPlayerExample> {
   void dispose() {
     super.dispose();
     _controller.dispose().whenComplete(() {
-      return httpCacheStream.dispose(); //Dispose the cache stream after the player is disposed
+      return httpCacheStream
+          .dispose(); //Dispose the cache stream after the player is disposed
     });
   }
 
@@ -47,7 +50,10 @@ class _VideoPlayerExampleState extends State<VideoPlayerExample> {
       mainAxisSize: MainAxisSize.min,
       children: [
         _controller.value.isInitialized
-            ? AspectRatio(aspectRatio: _controller.value.aspectRatio, child: VideoPlayer(_controller))
+            ? AspectRatio(
+              aspectRatio: _controller.value.aspectRatio,
+              child: VideoPlayer(_controller),
+            )
             : CircularProgressIndicator(),
 
         CacheProgressBar(httpCacheStream),

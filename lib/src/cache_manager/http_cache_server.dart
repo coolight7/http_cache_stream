@@ -16,7 +16,8 @@ class HttpCacheServer {
   void start(final HttpCacheStream? Function(Uri uri) getCacheStream) {
     _httpServer.listen(
       (request) {
-        final httpCacheStream = request.method == 'GET' ? getCacheStream(request.uri) : null;
+        final httpCacheStream =
+            request.method == 'GET' ? getCacheStream(request.uri) : null;
         if (httpCacheStream != null) {
           final requestHandler = RequestHandler(request);
           requestHandler.stream(httpCacheStream);

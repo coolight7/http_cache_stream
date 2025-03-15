@@ -22,12 +22,16 @@ enum CacheFileType {
     return File('${cacheFile.path}${type.extension}');
   }
 
-  static bool isMetadata(File file) => file.path.endsWith(CacheFileType.metadata.extension);
-  static bool isPartial(File file) => file.path.endsWith(CacheFileType.partial.extension);
+  static bool isMetadata(File file) =>
+      file.path.endsWith(CacheFileType.metadata.extension);
+  static bool isPartial(File file) =>
+      file.path.endsWith(CacheFileType.partial.extension);
   static bool isComplete(File file) => parse(file) == CacheFileType.complete;
 
-  static File metaDataFile(File cacheFile) => construct(cacheFile, CacheFileType.metadata);
-  static File partialFile(File cacheFile) => construct(cacheFile, CacheFileType.partial);
+  static File metaDataFile(File cacheFile) =>
+      construct(cacheFile, CacheFileType.metadata);
+  static File partialFile(File cacheFile) =>
+      construct(cacheFile, CacheFileType.partial);
   static File completeFile(File file) {
     final inputType = parse(file);
     if (inputType == CacheFileType.complete) return file;

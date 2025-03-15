@@ -8,7 +8,9 @@ class HttpRangeRequest extends HttpRange {
   static HttpRangeRequest? parse(HttpRequest request) {
     final rangeHeader = request.headers.value(HttpHeaders.rangeHeader);
     if (rangeHeader == null || rangeHeader.isEmpty) return null;
-    final (int? start, int? end, int? sourceLength) = HttpRange.parse(rangeHeader);
+    final (int? start, int? end, int? sourceLength) = HttpRange.parse(
+      rangeHeader,
+    );
     if (start == null) return null;
     return HttpRangeRequest._(start, end);
   }

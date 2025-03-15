@@ -19,17 +19,23 @@ class StreamCacheConfig implements CacheConfiguration {
 
   @override
   bool get copyCachedResponseHeaders {
-    return _useGlobalCopyCacheHeaders ? _global.copyCachedResponseHeaders : _local.copyCachedResponseHeaders;
+    return _useGlobalCopyCacheHeaders
+        ? _global.copyCachedResponseHeaders
+        : _local.copyCachedResponseHeaders;
   }
 
   @override
   bool get validateOutdatedCache {
-    return _useGlobalValidateOutdatedCache ? _global.validateOutdatedCache : _local.validateOutdatedCache;
+    return _useGlobalValidateOutdatedCache
+        ? _global.validateOutdatedCache
+        : _local.validateOutdatedCache;
   }
 
   @override
   int? get rangeRequestSplitThreshold {
-    return _useGlobalRangeRequestSplitThreshold ? _global.rangeRequestSplitThreshold : _local.rangeRequestSplitThreshold;
+    return _useGlobalRangeRequestSplitThreshold
+        ? _global.rangeRequestSplitThreshold
+        : _local.rangeRequestSplitThreshold;
   }
 
   @override
@@ -92,14 +98,14 @@ class StreamCacheConfig implements CacheConfiguration {
     return _combineHeaders(_global.responseHeaders, _local.responseHeaders);
   }
 
-  Map<String, Object> _combineHeaders(Map<String, Object> global, Map<String, Object> local) {
+  Map<String, Object> _combineHeaders(
+    Map<String, Object> global,
+    Map<String, Object> local,
+  ) {
     final useGlobal = global.isNotEmpty && useGlobalHeaders;
     final useLocal = local.isNotEmpty;
     if (!useGlobal && !useLocal) return const {};
-    return Map.unmodifiable({
-      if (useGlobal) ...global,
-      if (useLocal) ...local,
-    });
+    return Map.unmodifiable({if (useGlobal) ...global, if (useLocal) ...local});
   }
 
   bool _useGlobalCopyCacheHeaders = true;

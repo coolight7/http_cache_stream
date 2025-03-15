@@ -9,10 +9,7 @@ class CombinedCacheStream extends Stream<List<int>> {
   final _controller = StreamController<List<int>>(sync: true);
   late final StreamSubscription<List<int>> _dataSubscription;
   StreamSubscription<List<int>>? _fileSubscription;
-  CombinedCacheStream({
-    required this.fileStream,
-    required this.dataStream,
-  }) {
+  CombinedCacheStream({required this.fileStream, required this.dataStream}) {
     _bufferLiveData();
     _init();
   }
@@ -44,7 +41,8 @@ class CombinedCacheStream extends Stream<List<int>> {
     try {
       _fileSubscription = fileStream.listen(
         _controller.add,
-        onDone: _streamLiveData, //Start streaming live data once file stream is done
+        onDone:
+            _streamLiveData, //Start streaming live data once file stream is done
         onError: _controller.addError,
       );
     } catch (e) {
@@ -84,8 +82,14 @@ class CombinedCacheStream extends Stream<List<int>> {
     void Function()? onDone,
     bool? cancelOnError,
   }) {
-    return _controller.stream.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+    return _controller.stream.listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
   }
 
-  StreamSubscription<List<int>> get _currentSubscription => _fileSubscription ?? _dataSubscription;
+  StreamSubscription<List<int>> get _currentSubscription =>
+      _fileSubscription ?? _dataSubscription;
 }

@@ -30,8 +30,15 @@ class HttpCacheManager {
     } else {
       final cacheUrl = _server.getCacheUrl(sourceUrl);
       final cacheFiles = file != null ? CacheFiles.fromFile(file) : _defaultCacheFiles(sourceUrl);
-      httpCacheStream = HttpCacheStream(sourceUrl, cacheUrl, cacheFiles, StreamCacheConfig(config));
-      httpCacheStream.future.whenComplete(() => _streams.remove(key)); //Remove when stream is disposed
+      httpCacheStream = HttpCacheStream(
+        sourceUrl,
+        cacheUrl,
+        cacheFiles,
+        StreamCacheConfig(config),
+      );
+      httpCacheStream.future.whenComplete(
+        () => _streams.remove(key),
+      ); //Remove when stream is disposed
       _streams[key] = httpCacheStream;
     }
     return httpCacheStream;
@@ -48,8 +55,12 @@ class HttpCacheManager {
     await for (final file in inactiveCacheFiles()) {
       if (partialOnly && !CacheFileType.isPartial(file)) {
         if (!CacheFileType.isMetadata(file)) continue;
-        final completedCacheFile = File(file.path.replaceFirst(CacheFileType.metadata.extension, ''));
-        if (completedCacheFile.existsSync()) continue; //Do not delete metadata if the cache file exists
+        final completedCacheFile = File(
+          file.path.replaceFirst(CacheFileType.metadata.extension, ''),
+        );
+        if (completedCacheFile.existsSync()) {
+          continue; //Do not delete metadata if the cache file exists
+        }
       }
       if (kDebugMode) print('Deleting cache file: ${file.path}');
       await file.delete();
@@ -78,7 +89,9 @@ class HttpCacheManager {
       cacheMetadata.addAll(allStreams.map((stream) => stream.metadata));
     }
     if (active != true) {
-      await for (final file in inactiveCacheFiles().where(CacheFileType.isMetadata)) {
+      await for (final file in inactiveCacheFiles().where(
+        CacheFileType.isMetadata,
+      )) {
         final savedMetadata = CacheMetadata.load(file);
         if (savedMetadata != null) {
           cacheMetadata.add(savedMetadata);
@@ -132,10 +145,15 @@ class HttpCacheManager {
     }
     _initCompleter = Completer<HttpCacheManager>();
     try {
-      cacheDir ??= Directory(p.join((await getTemporaryDirectory()).path, _kCacheDirName));
+      cacheDir ??= Directory(
+        p.join((await getTemporaryDirectory()).path, _kCacheDirName),
+      );
       final httpCacheConfig = GlobalCacheConfig(cacheDir);
       final httpCacheServer = await HttpCacheServer.init();
-      final httpCacheManager = HttpCacheManager._(httpCacheServer, httpCacheConfig);
+      final httpCacheManager = HttpCacheManager._(
+        httpCacheServer,
+        httpCacheConfig,
+      );
       _instance = httpCacheManager;
       _initCompleter!.complete(httpCacheManager);
       return httpCacheManager;
@@ -149,7 +167,9 @@ class HttpCacheManager {
 
   static HttpCacheManager get instance {
     if (_instance == null) {
-      throw StateError('HttpCacheManager not initialized. Call HttpCacheManager.init() first.');
+      throw StateError(
+        'HttpCacheManager not initialized. Call HttpCacheManager.init() first.',
+      );
     }
     return _instance!;
   }

@@ -31,8 +31,16 @@ class HttpCacheStream {
   int _retainCount = 1; //The number of times the stream has been retained
   Future<File>? _downloadFuture; //The future for the current download, if any.
   Future<bool>? _validateCacheFuture;
-  late CacheMetadata _cacheMetadata = CacheMetadata.construct(_cacheFiles, sourceUrl);
-  HttpCacheStream(this.sourceUrl, this.cacheUrl, this._cacheFiles, this.config) {
+  late CacheMetadata _cacheMetadata = CacheMetadata.construct(
+    _cacheFiles,
+    sourceUrl,
+  );
+  HttpCacheStream(
+    this.sourceUrl,
+    this.cacheUrl,
+    this._cacheFiles,
+    this.config,
+  ) {
     final cachedHeaders = metadata.headers;
     if (cachedHeaders == null || cachedHeaders.sourceLength == null) return;
     if (_updateCacheProgress() == 1.0 && config.validateOutdatedCache && cachedHeaders.shouldRevalidate()) {
@@ -60,13 +68,19 @@ class HttpCacheStream {
 
   ///Validates the cache. Returns true if the cache is valid, false if it is not, and null if cache does not exist or is downloading.
   ///Cache is only revalidated if [CachedResponseHeaders.shouldRevalidate()] or [force] is true.
-  Future<bool?> validateCache({bool force = false, bool resetInvalid = false}) async {
+  Future<bool?> validateCache({
+    bool force = false,
+    bool resetInvalid = false,
+  }) async {
     if (_validateCacheFuture != null) {
       return _validateCacheFuture;
     }
     if (!isCached || isDownloading) return null;
     if (!force && metadata.headers?.shouldRevalidate() == false) return true;
-    _validateCacheFuture = CachedResponseHeaders.fromUri(sourceUrl, config.combinedRequestHeaders()).then((latestHeaders) async {
+    _validateCacheFuture = CachedResponseHeaders.fromUri(
+      sourceUrl,
+      config.combinedRequestHeaders(),
+    ).then((latestHeaders) async {
       final currentHeaders = metadata.headers ?? CachedResponseHeaders.fromFile(cacheFile);
       if (currentHeaders?.validate(latestHeaders) == true) {
         _setCachedResponseHeaders(latestHeaders);
@@ -114,7 +128,14 @@ class HttpCacheStream {
                 (readyCacheRequests ??= <StreamRequest>[]).add(request);
                 return true;
               } else if (rangeThreshold != null && bytesRemaining > rangeThreshold) {
-                request.complete(StreamResponse.fromDownload(sourceUrl, request.range, metadata.sourceLength, config));
+                request.complete(
+                  StreamResponse.fromDownload(
+                    sourceUrl,
+                    request.range,
+                    metadata.sourceLength,
+                    config,
+                  ),
+                );
                 return true;
               } else {
                 return false;
@@ -127,7 +148,9 @@ class HttpCacheStream {
           onComplete: () async {
             final cachedHeaders = metadata.headers!;
             if (cachedHeaders.sourceLength != downloader.downloadPosition || !cachedHeaders.acceptsRangeRequests) {
-              _setCachedResponseHeaders(cachedHeaders.setSourceLength(downloader.downloadPosition));
+              _setCachedResponseHeaders(
+                cachedHeaders.setSourceLength(downloader.downloadPosition),
+              );
             }
             await metadata.partialCacheFile.rename(cacheFile.path);
           },
@@ -176,8 +199,12 @@ class HttpCacheStream {
     }
     _retainCount = 0;
     if (_cacheDownloader != null) {
-      await _cacheDownloader!.cancel().catchError((_) {}); //Allow downloader to complete cleanly
-      if (isRetained) return _progressSubject.done; //Check if retained while waiting for download to stop
+      await _cacheDownloader!.cancel().catchError(
+            (_) {},
+          ); //Allow downloader to complete cleanly
+      if (isRetained) {
+        return _progressSubject.done; //Check if retained while waiting for download to stop
+      }
     }
     if (_queuedRequests.isNotEmpty) {
       _addError(CacheStreamDisposedException(sourceUrl), closeRequests: true);
@@ -205,10 +232,14 @@ class HttpCacheStream {
 
   ///Validates the requests in the queue. If any requests exceed the new source length, they are removed from the queue and completed with a [RangeError].
   void _validateRequests(int? previousSourceLength, int? nextSourceLength) {
-    if (_queuedRequests.isEmpty || nextSourceLength == null || previousSourceLength == nextSourceLength) return;
+    if (_queuedRequests.isEmpty || nextSourceLength == null || previousSourceLength == nextSourceLength) {
+      return;
+    }
     _queuedRequests.removeWhere((request) {
       if (request.range.exceeds(nextSourceLength)) {
-        request.completeError(RangeError.range(request.range.greatest, 0, nextSourceLength));
+        request.completeError(
+          RangeError.range(request.range.greatest, 0, nextSourceLength),
+        );
         return true;
       }
       return false;
@@ -224,7 +255,13 @@ class HttpCacheStream {
   void _updateProgressStream(double? value) {
     if (value == 1.0) {
       _queuedRequests.removeWhere((request) {
-        request.complete(StreamResponse.fromFile(request.range, cacheFile, metadata.sourceLength));
+        request.complete(
+          StreamResponse.fromFile(
+            request.range,
+            cacheFile,
+            metadata.sourceLength,
+          ),
+        );
         return true;
       });
     }
