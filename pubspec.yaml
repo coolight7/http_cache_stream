@@ -1,0 +1,35 @@
+name: http_cache_stream
+description: "Simultaneously download, cache, and stream remote content. Perfect for media players and any plugin that streams web content."
+version: 0.0.1
+homepage:
+
+environment:
+  sdk: ^3.6.1
+  flutter: ">=1.17.0"
+
+dependencies:
+  crypto: ^3.0.6
+  flutter:
+    sdk: flutter
+  mime: ^2.0.0
+  path: ^1.9.0
+  path_provider: ^2.1.5
+  rxdart: ^0.28.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+flutter:
+
+  platforms:
+    android:
+    ios:
+    macos:
+    linux:
+    windows:
