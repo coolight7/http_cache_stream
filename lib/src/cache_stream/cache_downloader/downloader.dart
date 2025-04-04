@@ -2,20 +2,16 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:http_cache_stream/src/cache_stream/cache_downloader/custom_http_client.dart';
-import 'package:http_cache_stream/src/models/config/stream_cache_config.dart';
-import 'package:http_cache_stream/src/models/stream_response/int_range.dart';
+import 'package:http/http.dart';
+import 'package:http_cache_stream/http_cache_stream.dart';
+import 'package:http_cache_stream/src/etc/exceptions.dart';
+import 'package:http_cache_stream/src/etc/http_util.dart';
 
 class Downloader {
   final Uri sourceUrl;
   final IntRange downloadRange;
   final StreamCacheConfig cacheConfig;
   final Duration timeout;
-  final _client = CustomHttpClient();
-  StreamSubscription<List<int>>? _currentSubscription;
-  int _receivedBytes = 0;
-  bool _done = false;
-  Completer<void>? _subscriptionCompleter;
   Downloader(
     this.sourceUrl,
     this.downloadRange,
@@ -26,14 +22,17 @@ class Downloader {
   Future<void> download({
     ///If [onError] is provided, handles IO errors (e.g. connection errors) and calls [onError] with the error. Otherwise, closes the stream with the error.
     final void Function(Object e)? onError,
-    final void Function(HttpClientResponse response)? onResponse,
+    final void Function(CachedResponseHeaders responseHeaders)? onHeaders,
     final void Function()? onDone,
     required final void Function(List<int> data) onData,
   }) async {
+    StreamedResponse?
+        unListenedResponse; //In case the stream is cancelled before it is listened to
     try {
       while (isActive) {
         try {
-          final response = await _client.getUrl(
+          final response = unListenedResponse = await HttpUtil.get(
+            cacheConfig.httpClient,
             sourceUrl,
             IntRange(position, downloadRange.end),
             cacheConfig.combinedRequestHeaders(),
@@ -41,15 +40,18 @@ class Downloader {
           if (!isActive) {
             break; //Async gap, check if cancelled
           }
-          if (onResponse != null) {
-            onResponse(response);
+          if (onHeaders != null) {
+            final cachedResponseHeaders =
+                CachedResponseHeaders.fromResponse(response);
+            onHeaders(cachedResponseHeaders);
           }
-          await _listenResponse(response, onData, onDone);
+          unListenedResponse = null; //Set to null upon listening
+          await _listenResponse(response.stream, onData, onDone);
         } catch (e) {
           if (!isActive) {
             break;
-          } else if (onError != null && e is IOException) {
-            onError(e); //Only handle IO errors (e.g. connection errors
+          } else if (onError != null && e is! InvalidCacheException) {
+            onError(e);
             await Future.delayed(Duration(seconds: 5)); //Wait before retrying
           } else {
             rethrow;
@@ -57,16 +59,20 @@ class Downloader {
         }
       }
     } finally {
+      if (unListenedResponse != null) {
+        HttpUtil.cancelStreamedResponse(unListenedResponse);
+        unListenedResponse = null;
+      }
       close();
     }
   }
 
   Future<void> _listenResponse(
-    final HttpClientResponse response,
+    final Stream<List<int>> response,
     final void Function(List<int> data) onData,
     final void Function()? onDone,
   ) {
-    final subscriptionCompleter = (_subscriptionCompleter = Completer<void>());
+    final subscriptionCompleter = _subscriptionCompleter = Completer<void>();
     final buffer = BytesBuilder(copy: false);
     final minChunkSize = cacheConfig.minChunkSize;
 
@@ -131,7 +137,7 @@ class Downloader {
     if (subscriptionCompleter != null && !subscriptionCompleter.isCompleted) {
       subscriptionCompleter.completeError(DownloadStoppedException(sourceUrl));
     }
-    _client.close(force: true);
+    _closed = true;
   }
 
   void pause() {
@@ -144,7 +150,12 @@ class Downloader {
     _currentSubscription?.resume();
   }
 
+  StreamSubscription<List<int>>? _currentSubscription;
+  int _receivedBytes = 0;
+  bool _done = false;
+  Completer<void>? _subscriptionCompleter;
   int _pauseCount = 0;
+  bool _closed = false;
 
   ///The number of bytes received from the current stream. This is not always the same as the position.
   int get receivedBytes => _receivedBytes;
@@ -159,18 +170,24 @@ class Downloader {
   int get position => downloadRange.start + _receivedBytes;
 
   ///If the downloader has been closed. The downloader cannot be used after it is closed.
-  bool get isClosed => _client.isClosed;
+  bool get isClosed => _closed;
 
   ///If the stream is paused, null if the downloader is closed.
   bool? get isPaused {
     if (isClosed) return null;
     return _currentSubscription?.isPaused ?? _pauseCount > 0;
   }
+
+  bool get isReceivingData {
+    return _currentSubscription?.isPaused == false &&
+        _subscriptionCompleter?.isCompleted == false &&
+        receivedBytes > 0;
+  }
 }
 
 class DownloadException extends HttpException {
   DownloadException(Uri uri, String message)
-    : super('Download Exception: $message', uri: uri);
+      : super('Download Exception: $message', uri: uri);
 }
 
 class DownloadStoppedException extends DownloadException {
@@ -179,5 +196,5 @@ class DownloadStoppedException extends DownloadException {
 
 class DownloadTimedOutException extends DownloadException {
   DownloadTimedOutException(Uri uri, Duration duration)
-    : super(uri, 'Timed out after $duration');
+      : super(uri, 'Timed out after $duration');
 }

@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:http_cache_stream/src/cache_stream/cache_downloader/buffered_io_sink.dart';
 import 'package:http_cache_stream/src/etc/exceptions.dart';
-import 'package:http_cache_stream/src/models/config/stream_cache_config.dart';
 import 'package:http_cache_stream/src/models/stream_response/stream_request.dart';
 
 import 'downloader.dart';
@@ -15,9 +14,9 @@ class CacheDownloader {
   final BufferedIOSink _sink;
   final _streamController = StreamController<List<int>>.broadcast(sync: true);
   CacheDownloader._(this._initMetadata, this._downloader, this._sink)
-    : _nextBufferPosition =
-          _downloader.position + _downloader.cacheConfig.maxBufferSize,
-      _sourceLength = _initMetadata.sourceLength;
+      : _nextBufferPosition =
+            _downloader.position + _downloader.cacheConfig.maxBufferSize,
+        _sourceLength = _initMetadata.sourceLength;
 
   factory CacheDownloader.construct(
     CacheMetadata cacheMetadata,
@@ -42,7 +41,7 @@ class CacheDownloader {
     required final void Function(int position) onPosition,
     required final Future<void> Function() onComplete,
     required final void Function(int? percent) onProgress,
-  }) async {
+  }) {
     if (_updateProgress(downloadPosition)) {
       final initProgress = _progressPercent;
       onProgress(initProgress);
@@ -62,10 +61,7 @@ class CacheDownloader {
             );
             onError(error);
           },
-          onResponse: (response) {
-            final cacheHttpHeaders = CachedResponseHeaders.fromHttpResponse(
-              response,
-            );
+          onHeaders: (cacheHttpHeaders) {
             if (_downloader.downloadRange.start > 0 &&
                 _initMetadata.headers?.validate(cacheHttpHeaders) == false) {
               throw CacheSourceChangedException(sourceUrl);
@@ -96,10 +92,10 @@ class CacheDownloader {
         .then((_) async {
           await _flush();
           final bufferedCacheLength = _sink.file.statSync().size;
-          final sourceLength =
-              _sourceLength ??=
-                  (_downloader.isDone ? _downloader.position : null);
+          final sourceLength = _sourceLength ??=
+              (_downloader.isDone ? _downloader.position : null);
           if (bufferedCacheLength == sourceLength) {
+            await _sink.close();
             await onComplete();
           } else if (bufferedCacheLength != downloadPosition) {
             throw InvalidCacheLengthException(
@@ -109,15 +105,20 @@ class CacheDownloader {
             );
           }
         })
-        .whenComplete(() {
-          if (!_downloader.isDone && _streamController.hasListener) {
-            _streamController.addError(DownloadStoppedException(sourceUrl));
-          }
-          _sink.close().ignore();
-          _streamController.close().ignore();
-        });
+        .whenComplete(
+          () {
+            if (!_downloader.isDone && _streamController.hasListener) {
+              _streamController.addError(DownloadStoppedException(sourceUrl));
+            }
+            if (!_sink.isClosed) {
+              _sink.close().ignore();
+            }
+            _streamController.close().ignore();
+          },
+        );
   }
 
+  /// Cancels the download and closes the stream. Called upon disposing the parent [HttpCacheStream].
   Future<void> cancel() {
     _downloader.close();
     return _streamController.done; // Wait for the stream to be closed
@@ -147,7 +148,8 @@ class CacheDownloader {
       if (isClosed) {
         throw DownloadStoppedException(sourceUrl);
       }
-      assert(partialCacheFile.statSync().size == downloadPosition);
+      assert(partialCacheFile.statSync().size == downloadPosition,
+          'CacheDownloader: processRequests: partialCacheFileSize (${partialCacheFile.statSync().size}) != downloadPosition ($downloadPosition)');
 
       for (final request in requests) {
         final response = StreamResponse.fromCacheStream(
@@ -188,6 +190,7 @@ class CacheDownloader {
   bool get isClosed => _downloader.isClosed;
   File get partialCacheFile => _sink.file;
   bool get acceptRangeRequests => _acceptRangeRequests == true;
+  bool get isReceivingData => _downloader.isReceivingData;
   StreamCacheConfig get _cacheConfig => _downloader.cacheConfig;
 }
 

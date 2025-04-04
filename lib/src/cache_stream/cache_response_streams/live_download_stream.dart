@@ -1,8 +1,7 @@
 import 'dart:async';
 
 import 'package:http_cache_stream/http_cache_stream.dart';
-import 'package:http_cache_stream/src/cache_stream/cache_downloader/custom_http_client.dart';
-import 'package:http_cache_stream/src/models/config/stream_cache_config.dart';
+import 'package:http_cache_stream/src/etc/http_util.dart';
 
 class LiveDownloadStream extends Stream<List<int>> {
   final Uri downloadUri;
@@ -35,14 +34,13 @@ class LiveDownloadStream extends Stream<List<int>> {
 class _LiveDownloadStream {
   final Uri downloadUri;
   final IntRange range;
-  final StreamCacheConfig config;
+  final StreamCacheConfig cacheConfig;
   final bool? cancelOnError;
   final _controller = StreamController<List<int>>(sync: true);
-  final _httpClient = CustomHttpClient();
   _LiveDownloadStream(
     this.downloadUri,
     this.range,
-    this.config, {
+    this.cacheConfig, {
     this.cancelOnError,
   }) {
     _controller.onListen = () {
@@ -57,12 +55,18 @@ class _LiveDownloadStream {
 
   void _start() async {
     try {
-      final response = await _httpClient.getUrl(
+      final response = await HttpUtil.get(
+        cacheConfig.httpClient,
         downloadUri,
         range,
-        config.combinedRequestHeaders(),
+        cacheConfig.combinedRequestHeaders(),
       );
-      await _controller.addStream(response, cancelOnError: cancelOnError);
+      if (_controller.isClosed) {
+        HttpUtil.cancelStreamedResponse(response);
+        return;
+      }
+      await _controller.addStream(response.stream,
+          cancelOnError: cancelOnError);
     } catch (e) {
       if (!_controller.isClosed && _controller.hasListener) {
         _controller.addError(e);
@@ -77,7 +81,6 @@ class _LiveDownloadStream {
     _controller.onListen = null;
     _controller.onCancel = null;
     _controller.close().ignore();
-    _httpClient.close(force: true);
   }
 
   Stream<List<int>> get stream => _controller.stream;

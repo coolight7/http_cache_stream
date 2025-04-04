@@ -4,11 +4,11 @@ abstract class HttpRange {
   final int? sourceLength;
 
   const HttpRange(this.start, this.end, {this.sourceLength})
-    : assert(start >= 0, 'start must be null or non-negative'),
-      assert(
-        end == null || (end >= start),
-        'end must be null or greater than or equal to start',
-      );
+      : assert(start >= 0, 'start must be null or non-negative'),
+        assert(
+          end == null || (end >= start),
+          'end must be null or greater than or equal to start',
+        );
 
   ///Validates if two ranges are equal
   static bool isEqual(HttpRange previous, HttpRange next) {

@@ -1,13 +1,13 @@
-import 'dart:io';
+import 'package:http/http.dart';
 
 abstract interface class CacheConfiguration {
   ///Custom headers to be sent when downloading cache.
-  Map<String, Object> get requestHeaders;
+  Map<String, String> get requestHeaders;
 
   ///Custom headers to add to every cached HTTP response.
-  Map<String, Object> get responseHeaders;
-  set requestHeaders(Map<String, Object> requestHeaders);
-  set responseHeaders(Map<String, Object> responseHeaders);
+  Map<String, String> get responseHeaders;
+  set requestHeaders(Map<String, String> requestHeaders);
+  set responseHeaders(Map<String, String> responseHeaders);
 
   ///When true, copies [CachedResponseHeaders] to [responseHeaders].
   ///
@@ -41,59 +41,24 @@ abstract interface class CacheConfiguration {
   /// Default value is 64KB.
   int get minChunkSize;
   set minChunkSize(int value);
-}
 
-sealed class CacheConfig implements CacheConfiguration {
-  @override
-  Map<String, Object> requestHeaders = {};
-  @override
-  Map<String, Object> responseHeaders = {};
-  @override
-  bool copyCachedResponseHeaders = false;
-  @override
-  bool validateOutdatedCache = false;
-  @override
-  int? get rangeRequestSplitThreshold => _rangeRequestSplitThreshold;
-  @override
-  set rangeRequestSplitThreshold(int? value) {
-    if (value != null) {
-      value = RangeError.checkNotNegative(value, 'RangeRequestSplitThreshold');
-    }
-    _rangeRequestSplitThreshold = value;
+  /// The HTTP client used to download cache.
+  Client get httpClient;
+
+  static int? validateRangeRequestSplitThreshold(int? value) {
+    if (value == null) return null;
+    return RangeError.checkNotNegative(value, 'RangeRequestSplitThreshold');
   }
 
-  @override
-  int get maxBufferSize => _maxBufferSize;
-  @override
-  set maxBufferSize(int value) {
+  static int validateMaxBufferSize(int value) {
     const minValue = 1024 * 1024 * 1; // 1MB
     if (value < minValue) {
       throw RangeError.range(value, minValue, null, 'maxBufferSize');
     }
-    _maxBufferSize = value;
+    return value;
   }
 
-  @override
-  int get minChunkSize => _minChunkSize;
-
-  @override
-  set minChunkSize(int value) {
-    _minChunkSize = RangeError.checkNotNegative(value, 'minChunkSize');
+  static int validateMinChunkSize(int value) {
+    return RangeError.checkNotNegative(value, 'minChunkSize');
   }
-
-  int? _rangeRequestSplitThreshold;
-  int _maxBufferSize = 1024 * 1024 * 25;
-  int _minChunkSize = 1024 * 64; // 64KB
-}
-
-class GlobalCacheConfig extends CacheConfig {
-  ///The directory where the cache is stored. This can only be set during initialization.
-  /// The cache directory must be writable and accessible by the application.
-  /// Defaults to 'http_cache_stream' in the application's temporary directory.
-  final Directory cacheDirectory;
-  GlobalCacheConfig(this.cacheDirectory);
-}
-
-class LocalCacheConfig extends CacheConfig {
-  LocalCacheConfig();
 }

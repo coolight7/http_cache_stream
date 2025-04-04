@@ -8,9 +8,9 @@ class BufferedIOSink {
   final File file;
   final int start;
   BufferedIOSink(this.file, {this.start = 0})
-    : _sink = file.openWrite(
-        mode: start > 0 ? FileMode.append : FileMode.write,
-      );
+      : _sink = file.openWrite(
+          mode: start > 0 ? FileMode.append : FileMode.write,
+        );
   final IOSink _sink;
 
   final _buffer = BytesBuilder(copy: false);
@@ -20,6 +20,7 @@ class BufferedIOSink {
   }
 
   Future<void> close() {
+    _isClosed = true;
     _buffer.clear();
     return _sink.close();
   }
@@ -41,7 +42,8 @@ class BufferedIOSink {
   }
 
   int get bufferSize => _buffer.length;
-  bool get isFlushed => _buffer.isEmpty && _flushFuture == null;
   bool get isFlushing => _flushFuture != null;
+  bool get isClosed => _isClosed;
+  bool _isClosed = false;
   Future? _flushFuture;
 }

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:http_cache_stream/http_cache_stream.dart';
-import 'package:http_cache_stream/src/models/config/stream_cache_config.dart';
 import 'package:mime/mime.dart';
 
 import '../models/http_range/http_range.dart';
@@ -18,14 +17,14 @@ class RequestHandler {
 
   void _awaitDone() async {
     httpRequest.response.bufferOutput = false;
-    httpRequest.response.statusCode =
-        HttpStatus
-            .internalServerError; //Set default status code to 500, in case of error
+    httpRequest.response.statusCode = HttpStatus
+        .internalServerError; //Set default status code to 500, in case of error
     await httpRequest.response.done.catchError((_) {});
     _closed = true;
   }
 
   void stream(HttpCacheStream cacheStream) async {
+    if (isClosed) return; //Request closed before we could start streaming
     Object? error;
     try {
       final rangeRequest = HttpRangeRequest.parse(httpRequest);

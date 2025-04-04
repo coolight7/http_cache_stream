@@ -14,9 +14,8 @@ class CacheMetadata {
   factory CacheMetadata.construct(CacheFiles cacheFiles, Uri sourceUrl) {
     CachedResponseHeaders? headers;
     if (cacheFiles.metadata.existsSync()) {
-      final json =
-          jsonDecode(cacheFiles.metadata.readAsStringSync())
-              as Map<String, dynamic>;
+      final json = jsonDecode(cacheFiles.metadata.readAsStringSync())
+          as Map<String, dynamic>;
       headers = CachedResponseHeaders.fromJson(json['headers']);
     }
     headers ??= CachedResponseHeaders.fromFile(cacheFiles.complete);
@@ -24,22 +23,23 @@ class CacheMetadata {
   }
 
   ///Attempts to load the metadata file for the given [file]. Returns null if the metadata file does not exist.
-  ///The [file] parameter accepts metadata files and cache files.
+  ///The [file] parameter accepts metadata, partial, or complete cache files. The metadata file is determined by the file extension.
   static CacheMetadata? load(File file) {
-    final cacheFiles = CacheFiles.fromFile(file);
-    final metaDataFile = cacheFiles.metadata;
-    if (!metaDataFile.existsSync()) {
-      return null;
-    }
-    final json =
-        jsonDecode(metaDataFile.readAsStringSync()) as Map<String, dynamic>;
-    final urlValue = json['Url'];
+    return fromCacheFiles(CacheFiles.fromFile(file));
+  }
+
+  static CacheMetadata? fromCacheFiles(CacheFiles cacheFiles) {
+    final metadataFile = cacheFiles.metadata;
+    if (!metadataFile.existsSync()) return null;
+    final metadataJson =
+        jsonDecode(metadataFile.readAsStringSync()) as Map<String, dynamic>;
+    final urlValue = metadataJson['Url'];
     final sourceUrl = urlValue == null ? null : Uri.tryParse(urlValue);
     if (sourceUrl == null) return null;
     return CacheMetadata._(
       cacheFiles,
       sourceUrl,
-      headers: CachedResponseHeaders.fromJson(json['headers']),
+      headers: CachedResponseHeaders.fromJson(metadataJson['headers']),
     );
   }
 
@@ -120,8 +120,7 @@ class CacheMetadata {
   }
 
   @override
-  String toString() =>
-      'CacheFileMetadata('
+  String toString() => 'CacheFileMetadata('
       'Files: $cacheFiles, '
       'sourceUrl: $sourceUrl, '
       'sourceLength: $sourceLength';

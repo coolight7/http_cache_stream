@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:http_cache_stream_example/examples/audio_players.dart';
+import 'package:http_cache_stream_example/examples/hls_video.dart';
 import 'package:http_cache_stream_example/examples/just_audio.dart';
 import 'package:http_cache_stream_example/examples/pre_cache_url.dart';
 import 'package:http_cache_stream_example/examples/video_player.dart';
@@ -11,7 +12,6 @@ void main() {
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
-
   @override
   State<MyApp> createState() => _MyAppState();
 }
@@ -79,6 +79,12 @@ class _Body extends StatelessWidget {
             Uri.parse(
               'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
             ),
+          ),
+        ),
+        _BuildButton(
+          'HLS Video',
+          HLSVideoExample(
+            Uri.parse('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8'),
           ),
         ),
         _BuildButton(

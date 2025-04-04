@@ -1,18 +1,26 @@
 import 'dart:io';
 
-import 'package:http_cache_stream/src/cache_stream/cache_downloader/custom_http_client.dart';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/http.dart';
+import 'package:http_cache_stream/src/etc/http_util.dart';
 import 'package:http_cache_stream/src/models/http_range/http_range_response.dart';
 import 'package:mime/mime.dart';
 
+@immutable
 class CachedResponseHeaders {
-  final Map<String, List<String>> _headers;
+  final Map<String, String> _headers;
   CachedResponseHeaders(this._headers);
 
   ///Compares this [CachedResponseHeaders] to the given [next] [CachedResponseHeaders] to determine if the cache is outdated.
   ///CachedResponseHeaders.fromFile() supports validating against a HEAD request by comparing sourceLength and lastModified.
   bool validate(CachedResponseHeaders next) {
-    if (sourceLength == null || sourceLength != next.sourceLength) {
-      return false; //Valid source length is required
+    final previousSourceLength = sourceLength;
+    final nextSourceLength = next.sourceLength;
+    if (previousSourceLength != null && nextSourceLength != null) {
+      if (previousSourceLength != nextSourceLength) {
+        return false;
+      }
     }
     final previousTag = eTag;
     final nextTag = next.eTag;
@@ -24,15 +32,10 @@ class CachedResponseHeaders {
     if (previousLastModified != null && nextLastModified != null) {
       return !nextLastModified.isAfter(previousLastModified);
     }
-    return !_headers.entries.any((entry) {
-      return entry.key != HttpHeaders.dateHeader &&
-          !next.equals(entry.key, entry.value.firstOrNull);
-    });
+    return contentLength == next.contentLength;
   }
 
-  String? get(String key) {
-    return _headers[key]?.firstOrNull;
-  }
+  String? get(String key) => _headers[key];
 
   ///If the host supports range requests.
   late final bool acceptsRangeRequests = equals(
@@ -110,59 +113,52 @@ class CachedResponseHeaders {
 
   ///Sets the source length of the response. This is used once all data from a compressed or chunked response has been received.
   CachedResponseHeaders setSourceLength(int sourceLength) {
-    final Map<String, List<String>> headers = {..._headers};
-    headers[HttpHeaders.acceptRangesHeader] = ['bytes'];
-    headers[HttpHeaders.contentLengthHeader] = [sourceLength.toString()];
+    final Map<String, String> headers = {..._headers};
+    headers[HttpHeaders.acceptRangesHeader] = 'bytes';
+    headers[HttpHeaders.contentLengthHeader] = sourceLength.toString();
     headers.remove(HttpHeaders.contentRangeHeader);
     headers.remove(HttpHeaders.contentEncodingHeader);
     headers.remove(HttpHeaders.transferEncodingHeader);
     return CachedResponseHeaders(headers);
   }
 
-  ///Extracts [CachedResponseHeaders] from a [HttpClientResponse].
-  ///Attempts to determine the source length from the response, and sets the content length header accordingly.
-  ///If the response is compressed or chunked, the content length header is removed.
+  ///Extracts [CachedResponseHeaders] from a [BaseResponse].
   ///If the response is a range response, the content range header is removed, and the source length is set to the range source length.
-  factory CachedResponseHeaders.fromHttpResponse(HttpClientResponse response) {
-    final Map<String, List<String>> headers = {};
-    response.headers.forEach((key, value) {
-      headers[key] = value;
-    });
-    int? sourceLength;
-    final responseRange = HttpRangeResponse.parse(response);
-    if (response.compressionState ==
-        HttpClientResponseCompressionState.decompressed) {
-      headers[HttpHeaders.contentEncodingHeader] = ['gzip'];
-    } else if (response.headers.chunkedTransferEncoding) {
-      headers[HttpHeaders.transferEncodingHeader] = ['chunked'];
-    } else if (responseRange != null) {
-      sourceLength = responseRange.sourceLength;
-    } else if (response.contentLength > 0) {
-      sourceLength = response.contentLength;
+  factory CachedResponseHeaders.fromResponse(BaseResponse response) {
+    final Map<String, String> headers = {...response.headers};
+    final contentRangeHeader = headers.remove(HttpHeaders.contentRangeHeader);
+    if (contentRangeHeader != null) {
+      final rangeSourceLength = HttpRangeResponse.parse(
+        contentRangeHeader,
+        response.contentLength,
+      )?.sourceLength;
+      if (rangeSourceLength != null) {
+        headers[HttpHeaders.contentLengthHeader] = rangeSourceLength.toString();
+      } else {
+        headers.remove(HttpHeaders.contentLengthHeader);
+      }
     }
-    if (sourceLength != null) {
-      headers[HttpHeaders.contentLengthHeader] = [sourceLength.toString()];
-    } else {
-      headers.remove(HttpHeaders.contentLengthHeader);
-    }
-    headers.remove(HttpHeaders.contentRangeHeader);
     if (!headers.containsKey(HttpHeaders.dateHeader)) {
-      headers[HttpHeaders.dateHeader] = [HttpDate.format(DateTime.now())];
+      headers[HttpHeaders.dateHeader] = HttpDate.format(DateTime.now());
     }
     return CachedResponseHeaders(headers);
   }
 
   ///Constructs a [CachedResponseHeaders] object from the given [uri] by sending a HEAD request.
   static Future<CachedResponseHeaders> fromUri(
-    Uri uri, [
-    Map<String, Object>? headers,
-  ]) async {
-    final client = CustomHttpClient();
+    Uri uri, {
+    http.Client? httpClient,
+    Map<String, String>? requestHeaders,
+  }) async {
+    final client = httpClient ?? http.Client();
     try {
-      final response = await client.headUrl(uri, headers);
-      return CachedResponseHeaders.fromHttpResponse(response);
+      final response =
+          await HttpUtil.headUrl(client, uri, requestHeaders: requestHeaders);
+      return CachedResponseHeaders.fromResponse(response);
     } finally {
-      client.close();
+      if (httpClient == null) {
+        client.close();
+      }
     }
   }
 
@@ -172,32 +168,42 @@ class CachedResponseHeaders {
     final fileStat = file.statSync();
     if (fileStat.size <= 0) return null;
     final headers = {
-      HttpHeaders.contentLengthHeader: [fileStat.size.toString()],
-      HttpHeaders.acceptRangesHeader: ['bytes'],
-      HttpHeaders.contentTypeHeader: [
-        lookupMimeType(file.path) ?? 'application/octet-stream',
-      ],
-      HttpHeaders.lastModifiedHeader: [HttpDate.format(fileStat.modified)],
-      HttpHeaders.dateHeader: [HttpDate.format(DateTime.now())],
+      HttpHeaders.contentLengthHeader: fileStat.size.toString(),
+      HttpHeaders.acceptRangesHeader: 'bytes',
+      HttpHeaders.contentTypeHeader:
+          lookupMimeType(file.path) ?? 'application/octet-stream',
+      HttpHeaders.lastModifiedHeader: HttpDate.format(fileStat.modified),
+      HttpHeaders.dateHeader: HttpDate.format(DateTime.now()),
     };
     return CachedResponseHeaders(headers);
   }
 
   static CachedResponseHeaders? fromJson(dynamic json) {
     if (json is! Map<String, dynamic>) return null;
-    final Map<String, List<String>> headers = {};
+    final Map<String, String> headers = {};
     json.forEach((key, value) {
-      headers[key] = value is List ? value.cast<String>() : [value.toString()];
+      if (value is List) {
+        switch (value.length) {
+          case 1:
+            headers[key] = value.first.toString();
+          case > 1:
+            headers[key] = value.join(', ');
+          default:
+            break;
+        }
+      } else if (value != null) {
+        headers[key] = value.toString();
+      }
     });
     return CachedResponseHeaders(headers);
   }
 
-  Map<String, List<String>> toJson() {
+  Map<String, String> toJson() {
     return _headers;
   }
 
-  void forEach(void Function(String, Object) action) =>
+  void forEach(void Function(String, String) action) =>
       _headers.forEach(action);
 
-  Map<String, List<String>> get headerMap => {..._headers};
+  Map<String, String> get headerMap => {..._headers};
 }

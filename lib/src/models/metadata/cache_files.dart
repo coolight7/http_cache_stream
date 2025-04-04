@@ -35,7 +35,7 @@ class CacheFiles {
     for (final file in cacheFiles) {
       if (file.existsSync()) {
         deleted = true;
-        if (kDebugMode) print('Deleting cache file: ${file.path}');
+        if (kDebugMode) print('CacheFiles: Deleting cache file: ${file.path}');
         await file.delete();
       }
     }

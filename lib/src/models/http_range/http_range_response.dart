@@ -5,14 +5,22 @@ import 'http_range.dart';
 class HttpRangeResponse extends HttpRange {
   const HttpRangeResponse._(super.start, super.end, {super.sourceLength});
 
-  static HttpRangeResponse? parse(HttpClientResponse response) {
-    final contentRangeHeader = response.headers.value(
-      HttpHeaders.contentRangeHeader,
-    );
-    if (contentRangeHeader == null || contentRangeHeader.isEmpty) return null;
-    var (int? start, int? end, int? sourceLength) = HttpRange.parse(
+  static HttpRangeResponse? parseResponse(HttpClientResponse response) {
+    final contentRangeHeader =
+        response.headers.value(HttpHeaders.contentRangeHeader);
+    return parse(
       contentRangeHeader,
+      response.contentLength,
     );
+  }
+
+  /// Parses the Content-Range header from a response.
+  /// If the header is not present or is invalid, returns null.
+  static HttpRangeResponse? parse(
+      String? contentRangeHeader, int? contentLength) {
+    if (contentRangeHeader == null || contentRangeHeader.isEmpty) return null;
+    var (int? start, int? end, int? sourceLength) =
+        HttpRange.parse(contentRangeHeader);
     if (start == null && end == null && sourceLength == null) {
       return null;
     }
@@ -20,10 +28,10 @@ class HttpRangeResponse extends HttpRange {
     if (sourceLength == null &&
         start == 0 &&
         end == null &&
-        response.contentLength > 0) {
+        contentLength != null &&
+        contentLength > 0) {
       sourceLength =
-          response
-              .contentLength; // If the source length is unknown, use the content length
+          contentLength; // If the source length is unknown, use the content length
     }
 
     return HttpRangeResponse._(start, end, sourceLength: sourceLength);

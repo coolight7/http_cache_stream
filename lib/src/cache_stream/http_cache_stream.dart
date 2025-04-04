@@ -21,26 +21,29 @@ class HttpCacheStream {
   ///The Url of the cached stream (e.g., http://127.0.0.1:8080/file.mp3)
   final Uri cacheUrl;
 
-  final CacheFiles _cacheFiles;
+  /// The complete, partial, and metadata files used for the cache.
+  final CacheFiles files;
 
+  /// The cache config used for this stream. By default, values from [GlobalCacheConfig] are used.
   final StreamCacheConfig config;
 
   final List<StreamRequest> _queuedRequests = [];
+
   final _progressSubject = BehaviorSubject<double?>();
   CacheDownloader? _cacheDownloader; //The active cache downloader, if any. This can be used to cancel the download.
   int _retainCount = 1; //The number of times the stream has been retained
   Future<File>? _downloadFuture; //The future for the current download, if any.
   Future<bool>? _validateCacheFuture;
   late CacheMetadata _cacheMetadata = CacheMetadata.construct(
-    _cacheFiles,
+    files,
     sourceUrl,
   );
-  HttpCacheStream(
-    this.sourceUrl,
-    this.cacheUrl,
-    this._cacheFiles,
-    this.config,
-  ) {
+  HttpCacheStream({
+    required this.sourceUrl,
+    required this.cacheUrl,
+    required this.files,
+    required this.config,
+  }) {
     final cachedHeaders = metadata.headers;
     if (cachedHeaders == null || cachedHeaders.sourceLength == null) return;
     if (_updateCacheProgress() == 1.0 && config.validateOutdatedCache && cachedHeaders.shouldRevalidate()) {
@@ -59,10 +62,14 @@ class HttpCacheStream {
       return StreamResponse.fromFile(range, cacheFile, cacheFileStat.size);
     }
     final streamRequest = StreamRequest.construct(range);
-    _queuedRequests.add(streamRequest); //Add request to queue
-    if (!isDownloading) {
+    final cacheDownloader = _cacheDownloader;
+    if (cacheDownloader == null) {
       download().ignore(); //Start download
+    } else if (cacheDownloader.downloadPosition > range.start && cacheDownloader.isReceivingData) {
+      cacheDownloader.processRequests([streamRequest]); //Process request immediately
+      return streamRequest.response;
     }
+    _queuedRequests.add(streamRequest); //Add request to queue
     return streamRequest.response;
   }
 
@@ -79,7 +86,8 @@ class HttpCacheStream {
     if (!force && metadata.headers?.shouldRevalidate() == false) return true;
     _validateCacheFuture = CachedResponseHeaders.fromUri(
       sourceUrl,
-      config.combinedRequestHeaders(),
+      httpClient: config.httpClient,
+      requestHeaders: config.combinedRequestHeaders(),
     ).then((latestHeaders) async {
       final currentHeaders = metadata.headers ?? CachedResponseHeaders.fromFile(cacheFile);
       if (currentHeaders?.validate(latestHeaders) == true) {
@@ -153,6 +161,7 @@ class HttpCacheStream {
               );
             }
             await metadata.partialCacheFile.rename(cacheFile.path);
+            config.onCacheComplete(this, cacheFile);
           },
           onProgress: (percentage) {
             //Limit to 99% to prevent 100% progress before write is complete
@@ -219,7 +228,7 @@ class HttpCacheStream {
     }
     _cacheMetadata = _cacheMetadata.copyWith(headers: null);
     _updateProgressStream(null);
-    await _cacheFiles.delete();
+    await files.delete();
     if (!isDownloading && _queuedRequests.isNotEmpty) {
       download().ignore(); //Start download
     }
@@ -304,6 +313,9 @@ class HttpCacheStream {
   ///If this [HttpCacheStream] is retained. A retained stream will not be disposed until the [dispose] method is called the same number of times as [retain] was called.
   bool get isRetained => _retainCount > 0;
 
+  /// The number of times this [HttpCacheStream] has been retained. This is incremented when the stream is obtained using [HttpCacheManager.createStream], and decremented when [dispose] is called.
+  int get retainCount => _retainCount;
+
   ///The current download progress 0-1, rounded to 2 decimal places. Returns null if the source length is unknown. Returns 1.0 only if the cache file exists.
   double? get progress => _progressSubject.valueOrNull;
 
@@ -314,7 +326,7 @@ class HttpCacheStream {
   CacheMetadata get metadata => _cacheMetadata;
 
   ///The output cache file for this [HttpCacheStream]. This is the file that will be used to save the downloaded content.
-  File get cacheFile => _cacheFiles.complete;
+  File get cacheFile => files.complete;
 
   ///Retains this [HttpCacheStream] instance. This method is automatically called when the stream is obtained using [HttpCacheManager.createStream].
   ///The stream will not be disposed until the [dispose] method is called the same number of times as this method.
