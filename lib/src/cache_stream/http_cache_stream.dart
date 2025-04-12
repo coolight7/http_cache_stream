@@ -27,7 +27,8 @@ class HttpCacheStream {
 
   final List<StreamRequest> _queuedRequests = [];
   final _progressSubject = BehaviorSubject<double?>();
-  CacheDownloader? _cacheDownloader; //The active cache downloader, if any. This can be used to cancel the download.
+  CacheDownloader?
+      _cacheDownloader; //The active cache downloader, if any. This can be used to cancel the download.
   int _retainCount = 1; //The number of times the stream has been retained
   Future<File>? _downloadFuture; //The future for the current download, if any.
   Future<bool>? _validateCacheFuture;
@@ -35,6 +36,9 @@ class HttpCacheStream {
     _cacheFiles,
     sourceUrl,
   );
+
+  int get retainCount => _retainCount;
+
   HttpCacheStream(
     this.sourceUrl,
     this.cacheUrl,
@@ -43,7 +47,9 @@ class HttpCacheStream {
   ) {
     final cachedHeaders = metadata.headers;
     if (cachedHeaders == null || cachedHeaders.sourceLength == null) return;
-    if (_updateCacheProgress() == 1.0 && config.validateOutdatedCache && cachedHeaders.shouldRevalidate()) {
+    if (_updateCacheProgress() == 1.0 &&
+        config.validateOutdatedCache &&
+        cachedHeaders.shouldRevalidate()) {
       validateCache(force: true, resetInvalid: true).ignore();
     }
   }
@@ -81,7 +87,8 @@ class HttpCacheStream {
       sourceUrl,
       config.combinedRequestHeaders(),
     ).then((latestHeaders) async {
-      final currentHeaders = metadata.headers ?? CachedResponseHeaders.fromFile(cacheFile);
+      final currentHeaders =
+          metadata.headers ?? CachedResponseHeaders.fromFile(cacheFile);
       if (currentHeaders?.validate(latestHeaders) == true) {
         _setCachedResponseHeaders(latestHeaders);
         return true;
@@ -116,18 +123,22 @@ class HttpCacheStream {
 
     while (isRetained && !isComplete()) {
       try {
-        final downloader = (_cacheDownloader = CacheDownloader.construct(metadata, config));
+        final downloader =
+            (_cacheDownloader = CacheDownloader.construct(metadata, config));
         await downloader.download(
           onPosition: (position) {
             if (_queuedRequests.isEmpty) return;
-            final rangeThreshold = downloader.acceptRangeRequests ? config.rangeRequestSplitThreshold : null;
+            final rangeThreshold = downloader.acceptRangeRequests
+                ? config.rangeRequestSplitThreshold
+                : null;
             List<StreamRequest>? readyCacheRequests;
             _queuedRequests.removeWhere((request) {
               final bytesRemaining = request.start - position;
               if (bytesRemaining <= 0) {
                 (readyCacheRequests ??= <StreamRequest>[]).add(request);
                 return true;
-              } else if (rangeThreshold != null && bytesRemaining > rangeThreshold) {
+              } else if (rangeThreshold != null &&
+                  bytesRemaining > rangeThreshold) {
                 request.complete(
                   StreamResponse.fromDownload(
                     sourceUrl,
@@ -147,7 +158,8 @@ class HttpCacheStream {
           },
           onComplete: () async {
             final cachedHeaders = metadata.headers!;
-            if (cachedHeaders.sourceLength != downloader.downloadPosition || !cachedHeaders.acceptsRangeRequests) {
+            if (cachedHeaders.sourceLength != downloader.downloadPosition ||
+                !cachedHeaders.acceptsRangeRequests) {
               _setCachedResponseHeaders(
                 cachedHeaders.setSourceLength(downloader.downloadPosition),
               );
@@ -156,7 +168,9 @@ class HttpCacheStream {
           },
           onProgress: (percentage) {
             //Limit to 99% to prevent 100% progress before write is complete
-            final progress = percentage == null ? null : (percentage / 100).clamp(0, .99).toDouble();
+            final progress = percentage == null
+                ? null
+                : (percentage / 100).clamp(0, .99).toDouble();
             _updateProgressStream(progress);
           },
           onHeaders: (cacheHttpHeaders) {
@@ -180,7 +194,8 @@ class HttpCacheStream {
     }
     if (!isComplete()) {
       final error = DownloadStoppedException(sourceUrl);
-      downloadCompleter.future.ignore(); // Prevent unhandled error during completion
+      downloadCompleter.future
+          .ignore(); // Prevent unhandled error during completion
       downloadCompleter.completeError(error);
       _addError(error, closeRequests: true);
     }
@@ -203,13 +218,16 @@ class HttpCacheStream {
             (_) {},
           ); //Allow downloader to complete cleanly
       if (isRetained) {
-        return _progressSubject.done; //Check if retained while waiting for download to stop
+        return _progressSubject
+            .done; //Check if retained while waiting for download to stop
       }
     }
     if (_queuedRequests.isNotEmpty) {
       _addError(CacheStreamDisposedException(sourceUrl), closeRequests: true);
     }
-    _progressSubject.close().ignore(); //This implicitly sets [disposed] to true and completes the future
+    _progressSubject
+        .close()
+        .ignore(); //This implicitly sets [disposed] to true and completes the future
   }
 
   ///Resets the cache files used by this [HttpCacheStream], interrupting any ongoing download.
@@ -232,7 +250,9 @@ class HttpCacheStream {
 
   ///Validates the requests in the queue. If any requests exceed the new source length, they are removed from the queue and completed with a [RangeError].
   void _validateRequests(int? previousSourceLength, int? nextSourceLength) {
-    if (_queuedRequests.isEmpty || nextSourceLength == null || previousSourceLength == nextSourceLength) {
+    if (_queuedRequests.isEmpty ||
+        nextSourceLength == null ||
+        previousSourceLength == nextSourceLength) {
       return;
     }
     _queuedRequests.removeWhere((request) {
@@ -327,5 +347,6 @@ class HttpCacheStream {
   Future get future => _progressSubject.done;
 
   @override
-  String toString() => 'HttpCacheStream{sourceUrl: $sourceUrl, cacheUrl: $cacheUrl, cacheFile: $cacheFile}';
+  String toString() =>
+      'HttpCacheStream{sourceUrl: $sourceUrl, cacheUrl: $cacheUrl, cacheFile: $cacheFile}';
 }
