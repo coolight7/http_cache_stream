@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:http_cache_stream/src/models/config/stream_cache_config.dart';
 import 'package:mime/mime.dart';
+import 'package:string_util_xx/StringUtilxx.dart';
 
 import '../models/http_range/http_range.dart';
 import '../models/http_range/http_range_request.dart';
@@ -18,9 +19,8 @@ class RequestHandler {
 
   void _awaitDone() async {
     httpRequest.response.bufferOutput = false;
-    httpRequest.response.statusCode =
-        HttpStatus
-            .internalServerError; //Set default status code to 500, in case of error
+    httpRequest.response.statusCode = HttpStatus
+        .internalServerError; //Set default status code to 500, in case of error
     await httpRequest.response.done.catchError((_) {});
     _closed = true;
   }
@@ -28,6 +28,26 @@ class RequestHandler {
   void stream(HttpCacheStream cacheStream) async {
     Object? error;
     try {
+      final useHeader = <String, Object>{};
+      httpRequest.headers.forEach((name, values) {
+        if (StringUtilxx_c.isIgnoreCaseContains(
+              name,
+              HttpHeaders.hostHeader,
+            ) ||
+            StringUtilxx_c.isIgnoreCaseContains(
+              name,
+              HttpHeaders.acceptEncodingHeader,
+            )) {
+          return;
+        }
+        try {
+          final val = values.firstOrNull;
+          if (null != val) {
+            useHeader[name] = val;
+          }
+        } catch (_) {}
+      });
+      cacheStream.config.requestHeaders = useHeader;
       final rangeRequest = HttpRangeRequest.parse(httpRequest);
       final streamResponse = await cacheStream.request(
         rangeRequest?.start,

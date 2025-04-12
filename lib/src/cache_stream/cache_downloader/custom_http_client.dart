@@ -9,9 +9,9 @@ import 'package:http_cache_stream/src/models/http_range/http_range_response.dart
 class CustomHttpClient {
   final _client = HttpClient();
   final Duration timeout;
-  CustomHttpClient({this.timeout = const Duration(seconds: 15)}) {
+  CustomHttpClient({this.timeout = const Duration(seconds: 8)}) {
     _client.connectionTimeout = timeout;
-    _client.idleTimeout = const Duration(seconds: 30);
+    _client.idleTimeout = const Duration(minutes: 5);
   }
 
   Future<HttpClientResponse> getUrl(
@@ -33,7 +33,7 @@ class CustomHttpClient {
       return response;
     } else {
       final response = await request.close();
-      if (response.statusCode != HttpStatus.ok) {
+      if (response.statusCode ~/ 100 != 2) {
         throw InvalidHttpStatusCode(url, HttpStatus.ok, response.statusCode);
       }
       return response;
@@ -47,7 +47,7 @@ class CustomHttpClient {
     final request = await _client.headUrl(url);
     _formatRequest(request, requestHeaders ?? const {});
     final response = await request.close();
-    if (response.statusCode != HttpStatus.ok) {
+    if (response.statusCode ~/ 100 != 2) {
       throw InvalidHttpStatusCode(url, HttpStatus.ok, response.statusCode);
     }
     return response;
