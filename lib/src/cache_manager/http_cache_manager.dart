@@ -39,10 +39,8 @@ class HttpCacheManager {
         cacheFiles,
         StreamCacheConfig(config),
       );
-      print("httpCacheStream create $key");
       httpCacheStream.future.whenComplete(
         () {
-          print("httpCacheStream done remove $key");
           _streams.remove(key);
         },
       ); //Remove when stream is disposed
