@@ -26,18 +26,25 @@ class HttpCacheManager {
     final key = _requestKey(sourceUrl);
     HttpCacheStream? httpCacheStream = _streams[key];
     if (httpCacheStream != null) {
-      httpCacheStream.retain(); //Retain the stream to prevent it from being disposed
+      httpCacheStream
+          .retain(); //Retain the stream to prevent it from being disposed
     } else {
       final cacheUrl = _server.getCacheUrl(sourceUrl);
-      final cacheFiles = file != null ? CacheFiles.fromFile(file) : _defaultCacheFiles(sourceUrl);
+      final cacheFiles = file != null
+          ? CacheFiles.fromFile(file)
+          : _defaultCacheFiles(sourceUrl);
       httpCacheStream = HttpCacheStream(
         sourceUrl,
         cacheUrl,
         cacheFiles,
         StreamCacheConfig(config),
       );
+      print("httpCacheStream create $key");
       httpCacheStream.future.whenComplete(
-        () => _streams.remove(key),
+        () {
+          print("httpCacheStream done remove $key");
+          _streams.remove(key);
+        },
       ); //Remove when stream is disposed
       _streams[key] = httpCacheStream;
     }
@@ -103,12 +110,14 @@ class HttpCacheManager {
 
   ///Get the [CacheMetadata] for the given URL. Returns null if the metadata does not exist.
   CacheMetadata? getCacheMetadata(Uri sourceUrl) {
-    return _streamFromUri(sourceUrl)?.metadata ?? CacheMetadata.load(_defaultCacheFiles(sourceUrl).complete);
+    return _streamFromUri(sourceUrl)?.metadata ??
+        CacheMetadata.load(_defaultCacheFiles(sourceUrl).complete);
   }
 
   ///Gets [CacheFiles] for the given URL. Does not check if any cache files exists.
   CacheFiles getCacheFiles(Uri sourceUrl) {
-    return _streamFromUri(sourceUrl)?.metadata.cacheFiles ?? _defaultCacheFiles(sourceUrl);
+    return _streamFromUri(sourceUrl)?.metadata.cacheFiles ??
+        _defaultCacheFiles(sourceUrl);
   }
 
   ///Disposes the current [HttpCacheManager] and all [HttpCacheStream] instances

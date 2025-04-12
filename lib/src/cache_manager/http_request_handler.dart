@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:http_cache_stream/src/models/config/stream_cache_config.dart';
 import 'package:mime/mime.dart';
@@ -125,6 +126,10 @@ class RequestHandler {
   void close([Object? error]) {
     if (_closed) return;
     _closed = true;
+    if (kDebugMode && null != error) {
+      // ignore: avoid_print
+      print("HttpCacheStream Error: $error");
+    }
     if (error != null && !_streaming) {
       httpRequest.response.addError(error);
     }

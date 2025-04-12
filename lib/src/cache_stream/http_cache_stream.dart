@@ -82,25 +82,7 @@ class HttpCacheStream {
       return _validateCacheFuture;
     }
     if (!isCached || isDownloading) return null;
-    if (!force && metadata.headers?.shouldRevalidate() == false) return true;
-    _validateCacheFuture = CachedResponseHeaders.fromUri(
-      sourceUrl,
-      config.combinedRequestHeaders(),
-    ).then((latestHeaders) async {
-      final currentHeaders =
-          metadata.headers ?? CachedResponseHeaders.fromFile(cacheFile);
-      if (currentHeaders?.validate(latestHeaders) == true) {
-        _setCachedResponseHeaders(latestHeaders);
-        return true;
-      } else {
-        if (resetInvalid) await resetCache();
-        return false;
-      }
-    }).whenComplete(() {
-      _validateCacheFuture = null;
-      _updateCacheProgress();
-    });
-    return _validateCacheFuture;
+    return true;
   }
 
   ///Downloads and returns [cacheFile]. If the file already exists, returns immediately. This method can be called multiple times, and the download will only be started once.
