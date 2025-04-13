@@ -1,78 +1,120 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart' as libdio;
+import 'package:dio/io.dart';
 import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:http_cache_stream/src/etc/exceptions.dart';
 import 'package:http_cache_stream/src/models/http_range/http_range.dart';
 import 'package:http_cache_stream/src/models/http_range/http_range_request.dart';
 import 'package:http_cache_stream/src/models/http_range/http_range_response.dart';
+import 'package:util_xx/Httpxx.dart';
 
-class CustomHttpClient {
-  final _client = HttpClient();
-  final Duration timeout;
-  CustomHttpClient({this.timeout = const Duration(seconds: 8)}) {
-    _client.connectionTimeout = timeout;
-    _client.idleTimeout = const Duration(minutes: 5);
-    _client.badCertificateCallback = (_, __, ___) {
-      return true;
-    };
-    _client.userAgent =
-        "Mozilla/5.0 (Linux; Android 14; arm64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.6045.160 Mobile Safari/537.36 Musicxx/77";
-  }
-
-  Future<HttpClientResponse> getUrl(
+abstract class CustomHttpClient {
+  Future<libdio.Response<libdio.ResponseBody>> getUrl(
     Uri url,
     IntRange range,
-    Map<String, Object> requestHeaders,
+    HttpHeaderAnyxx requestHeaders,
+  );
+
+  Future<libdio.Response<dynamic>> headUrl(
+    Uri url, [
+    Map<String, Object>? requestHeaders,
+  ]);
+
+  void close({bool force = true});
+
+  bool get isClosed;
+}
+
+class CustomHttpClientxx extends CustomHttpClient {
+  static libdio.BaseOptions? options;
+
+  late final libdio.Dio client;
+  bool _closed = false;
+
+  @override
+  bool get isClosed => _closed;
+
+  CustomHttpClientxx() {
+    client = libdio.Dio(options);
+    client.httpClientAdapter = IOHttpClientAdapter(
+      createHttpClient: () {
+        final client = HttpClient(
+          context: SecurityContext(withTrustedRoots: false),
+        );
+        client.badCertificateCallback = (
+          X509Certificate cert,
+          String host,
+          int port,
+        ) {
+          return true;
+        };
+        return client;
+      },
+    );
+  }
+
+  @override
+  Future<libdio.Response<libdio.ResponseBody>> getUrl(
+    Uri url,
+    IntRange range,
+    HttpHeaderAnyxx requestHeaders,
   ) async {
-    final request = await _client.getUrl(url);
-    _formatRequest(request, requestHeaders);
     if (!range.isFull) {
       final rangeRequest = HttpRangeRequest.inclusive(range.start, range.end);
-      request.headers.set(HttpHeaders.rangeHeader, rangeRequest.header);
-      final response = await request.close();
-      final rangeResponse = HttpRangeResponse.parse(response);
+      final useHeader = Httpxx_c.createHeader(data: requestHeaders);
+      useHeader[HttpHeaders.rangeHeader] = rangeRequest.header;
+      final resp = await client.getUri<libdio.ResponseBody>(
+        url,
+        options: libdio.Options(
+          headers: useHeader,
+          responseType: libdio.ResponseType.stream,
+        ),
+      );
+      final rangeResponse = HttpRangeResponse.parse(resp.headers);
       if (rangeResponse == null ||
           !HttpRange.isEqual(rangeRequest, rangeResponse)) {
         throw InvalidRangeRequestException(url, rangeRequest, rangeResponse);
       }
-      return response;
+      return resp;
     } else {
-      final response = await request.close();
-      if (response.statusCode ~/ 100 != 2) {
-        throw InvalidHttpStatusCode(url, HttpStatus.ok, response.statusCode);
+      final resp = await client.getUri<libdio.ResponseBody>(
+        url,
+        options: libdio.Options(
+          headers: requestHeaders,
+          responseType: libdio.ResponseType.stream,
+        ),
+      );
+      final code = resp.statusCode;
+      if (null != code && code ~/ 100 != 2) {
+        throw InvalidHttpStatusCode(url, HttpStatus.ok, code);
       }
-      return response;
+      return resp;
     }
   }
 
-  Future<HttpClientResponse> headUrl(
+  @override
+  Future<libdio.Response<dynamic>> headUrl(
     Uri url, [
     Map<String, Object>? requestHeaders,
   ]) async {
-    final request = await _client.headUrl(url);
-    _formatRequest(request, requestHeaders ?? const {});
-    final response = await request.close();
-    if (response.statusCode ~/ 100 != 2) {
-      throw InvalidHttpStatusCode(url, HttpStatus.ok, response.statusCode);
+    final response = await client.headUri(
+      url,
+      options: libdio.Options(
+        headers: requestHeaders,
+      ),
+    );
+    final code = response.statusCode;
+    if (null != code && code ~/ 100 != 2) {
+      throw InvalidHttpStatusCode(url, HttpStatus.ok, code);
     }
     return response;
   }
 
-  void _formatRequest(HttpClientRequest request, Map<String, Object> headers) {
-    request.maxRedirects = 20;
-    request.followRedirects = true;
-    request.headers.removeAll(
-      HttpHeaders.acceptEncodingHeader,
-    ); //Remove the accept encoding header to prevent compression
-    headers.forEach(request.headers.set);
-  }
-
+  @override
   void close({bool force = true}) {
     if (_closed) return;
     _closed = true;
-    return _client.close(force: force);
+    return client.close(force: force);
   }
-
-  bool _closed = false;
-  bool get isClosed => _closed;
 }

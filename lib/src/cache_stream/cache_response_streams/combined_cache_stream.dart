@@ -9,6 +9,7 @@ class CombinedCacheStream extends Stream<List<int>> {
   final _controller = StreamController<List<int>>(sync: true);
   late final StreamSubscription<List<int>> _dataSubscription;
   StreamSubscription<List<int>>? _fileSubscription;
+
   CombinedCacheStream({required this.fileStream, required this.dataStream}) {
     _bufferLiveData();
     _init();

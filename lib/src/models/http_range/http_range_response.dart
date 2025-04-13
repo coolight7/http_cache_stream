@@ -1,14 +1,14 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart' as libdio;
 import 'http_range.dart';
 
 class HttpRangeResponse extends HttpRange {
   const HttpRangeResponse._(super.start, super.end, {super.sourceLength});
 
-  static HttpRangeResponse? parse(HttpClientResponse response) {
-    final contentRangeHeader = response.headers.value(
-      HttpHeaders.contentRangeHeader,
-    );
+  static HttpRangeResponse? parse(libdio.Headers headers) {
+    final contentRangeHeader =
+        headers[HttpHeaders.contentRangeHeader]?.firstOrNull;
     if (contentRangeHeader == null || contentRangeHeader.isEmpty) return null;
     var (int? start, int? end, int? sourceLength) = HttpRange.parse(
       contentRangeHeader,
@@ -17,13 +17,16 @@ class HttpRangeResponse extends HttpRange {
       return null;
     }
     start ??= 0;
+    final contentLen = int.tryParse(
+      headers[HttpHeaders.contentLengthHeader]?.firstOrNull ?? "",
+    );
     if (sourceLength == null &&
         start == 0 &&
         end == null &&
-        response.contentLength > 0) {
+        null != contentLen &&
+        contentLen > 0) {
       sourceLength =
-          response
-              .contentLength; // If the source length is unknown, use the content length
+          contentLen; // If the source length is unknown, use the content length
     }
 
     return HttpRangeResponse._(start, end, sourceLength: sourceLength);

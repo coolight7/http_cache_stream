@@ -1,4 +1,5 @@
 import 'package:http_cache_stream/http_cache_stream.dart';
+import 'package:util_xx/Httpxx.dart';
 
 ///Cache configuration for a single [HttpCacheStream]. Values set here override the global values set in [GlobalCacheConfig].
 ///
@@ -13,9 +14,9 @@ class StreamCacheConfig implements CacheConfiguration {
   bool useGlobalHeaders = true;
 
   @override
-  Map<String, Object> get requestHeaders => _local.requestHeaders;
+  HttpHeaderxx get requestHeaders => _local.requestHeaders;
   @override
-  Map<String, Object> get responseHeaders => _local.responseHeaders;
+  HttpHeaderxx get responseHeaders => _local.responseHeaders;
 
   @override
   bool get copyCachedResponseHeaders {
@@ -49,12 +50,12 @@ class StreamCacheConfig implements CacheConfiguration {
   }
 
   @override
-  set requestHeaders(Map<String, Object> requestHeaders) {
+  set requestHeaders(HttpHeaderxx requestHeaders) {
     _local.requestHeaders = requestHeaders;
   }
 
   @override
-  set responseHeaders(Map<String, Object> responseHeaders) {
+  set responseHeaders(HttpHeaderxx responseHeaders) {
     _local.responseHeaders = responseHeaders;
   }
 
@@ -89,18 +90,18 @@ class StreamCacheConfig implements CacheConfiguration {
   }
 
   ///Returns an immutable map of all custom request headers.
-  Map<String, Object> combinedRequestHeaders() {
+  HttpHeaderAnyxx combinedRequestHeaders() {
     return _combineHeaders(_global.requestHeaders, _local.requestHeaders);
   }
 
   ///Returns an immutable map of all custom response headers.
-  Map<String, Object> combinedResponseHeaders() {
+  HttpHeaderAnyxx combinedResponseHeaders() {
     return _combineHeaders(_global.responseHeaders, _local.responseHeaders);
   }
 
-  Map<String, Object> _combineHeaders(
-    Map<String, Object> global,
-    Map<String, Object> local,
+  HttpHeaderAnyxx _combineHeaders(
+    HttpHeaderxx global,
+    HttpHeaderxx local,
   ) {
     final useGlobal = global.isNotEmpty && useGlobalHeaders;
     final useLocal = local.isNotEmpty;

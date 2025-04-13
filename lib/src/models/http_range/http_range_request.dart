@@ -6,7 +6,7 @@ class HttpRangeRequest extends HttpRange {
   const HttpRangeRequest._(super.start, super.end);
 
   static HttpRangeRequest? parse(HttpRequest request) {
-    final rangeHeader = request.headers.value(HttpHeaders.rangeHeader);
+    final rangeHeader = request.headers[HttpHeaders.rangeHeader]?.firstOrNull;
     if (rangeHeader == null || rangeHeader.isEmpty) return null;
     final (int? start, int? end, int? sourceLength) = HttpRange.parse(
       rangeHeader,

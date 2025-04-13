@@ -1,13 +1,15 @@
 import 'dart:io';
 
+import 'package:util_xx/Httpxx.dart';
+
 abstract interface class CacheConfiguration {
   ///Custom headers to be sent when downloading cache.
-  Map<String, Object> get requestHeaders;
+  HttpHeaderxx get requestHeaders;
 
   ///Custom headers to add to every cached HTTP response.
-  Map<String, Object> get responseHeaders;
-  set requestHeaders(Map<String, Object> requestHeaders);
-  set responseHeaders(Map<String, Object> responseHeaders);
+  HttpHeaderxx get responseHeaders;
+  set requestHeaders(HttpHeaderxx requestHeaders);
+  set responseHeaders(HttpHeaderxx responseHeaders);
 
   ///When true, copies [CachedResponseHeaders] to [responseHeaders].
   ///
@@ -45,9 +47,9 @@ abstract interface class CacheConfiguration {
 
 sealed class CacheConfig implements CacheConfiguration {
   @override
-  Map<String, Object> requestHeaders = {};
+  HttpHeaderxx requestHeaders = Httpxx_c.createHeader();
   @override
-  Map<String, Object> responseHeaders = {};
+  HttpHeaderxx responseHeaders = Httpxx_c.createHeader();
   @override
   bool copyCachedResponseHeaders = false;
   @override

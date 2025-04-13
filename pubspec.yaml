@@ -2,6 +2,7 @@ name: http_cache_stream
 description: "Simultaneously download, cache, and stream remote content. Perfect for media players and any plugin that streams web content."
 version: 0.0.1
 homepage: https://github.com/Colton127/http_cache_stream
+publish_to: 'none'
 
 platforms:
   android:
@@ -23,7 +24,17 @@ dependencies:
   path: ^1.9.0
   path_provider: ^2.1.5
   rxdart: ^0.28.0
-  string_util_xx:
+  dio: ^5.8.0+1
+  util_xx: 
+    path: ../util_xx
+  string_util_xx: 
+    path: ../string_util_xx
+
+dependency_overrides:
+  util_xx: 
+    path: ../util_xx
+  string_util_xx: 
+    path: ../string_util_xx
 
 dev_dependencies:
   flutter_test:

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart' as libdio;
 import 'package:http_cache_stream/src/cache_stream/cache_downloader/custom_http_client.dart';
 import 'package:http_cache_stream/src/models/http_range/http_range_response.dart';
 import 'package:mime/mime.dart';
@@ -123,22 +124,32 @@ class CachedResponseHeaders {
   ///Attempts to determine the source length from the response, and sets the content length header accordingly.
   ///If the response is compressed or chunked, the content length header is removed.
   ///If the response is a range response, the content range header is removed, and the source length is set to the range source length.
-  factory CachedResponseHeaders.fromHttpResponse(HttpClientResponse response) {
+  factory CachedResponseHeaders.fromHttpResponse(
+    libdio.Response response,
+  ) {
     final Map<String, List<String>> headers = {};
     response.headers.forEach((key, value) {
       headers[key] = value;
     });
     int? sourceLength;
-    final responseRange = HttpRangeResponse.parse(response);
-    if (response.compressionState ==
-        HttpClientResponseCompressionState.decompressed) {
+    final responseRange = HttpRangeResponse.parse(response.headers);
+    if (response.headers[HttpHeaders.contentEncodingHeader]?.firstOrNull ==
+        "gzip") {
       headers[HttpHeaders.contentEncodingHeader] = ['gzip'];
-    } else if (response.headers.chunkedTransferEncoding) {
+    } else if (response
+            .headers[HttpHeaders.transferEncodingHeader]?.firstOrNull ==
+        "chunked") {
       headers[HttpHeaders.transferEncodingHeader] = ['chunked'];
     } else if (responseRange != null) {
       sourceLength = responseRange.sourceLength;
-    } else if (response.contentLength > 0) {
-      sourceLength = response.contentLength;
+    } else {
+      final len = int.tryParse(
+              response.headers[HttpHeaders.contentLengthHeader]?.firstOrNull ??
+                  "") ??
+          0;
+      if (len > 0) {
+        sourceLength = len;
+      }
     }
     if (sourceLength != null) {
       headers[HttpHeaders.contentLengthHeader] = [sourceLength.toString()];
@@ -157,7 +168,7 @@ class CachedResponseHeaders {
     Uri uri, [
     Map<String, Object>? headers,
   ]) async {
-    final client = CustomHttpClient();
+    final client = CustomHttpClientxx();
     try {
       final response = await client.headUrl(uri, headers);
       return CachedResponseHeaders.fromHttpResponse(response);

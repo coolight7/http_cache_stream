@@ -6,6 +6,7 @@ import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:http_cache_stream/src/models/config/stream_cache_config.dart';
 import 'package:mime/mime.dart';
 import 'package:string_util_xx/StringUtilxx.dart';
+import 'package:util_xx/Httpxx.dart';
 
 import '../models/http_range/http_range.dart';
 import '../models/http_range/http_range_request.dart';
@@ -29,7 +30,7 @@ class RequestHandler {
   void stream(HttpCacheStream cacheStream) async {
     Object? error;
     try {
-      final useHeader = <String, Object>{};
+      final useHeader = Httpxx_c.createHeader();
       httpRequest.headers.forEach((name, values) {
         if (StringUtilxx_c.isIgnoreCaseContains(
               name,

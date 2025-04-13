@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart' as libdio;
 import 'package:http_cache_stream/src/cache_stream/cache_downloader/custom_http_client.dart';
 import 'package:http_cache_stream/src/models/config/stream_cache_config.dart';
 import 'package:http_cache_stream/src/models/stream_response/int_range.dart';
@@ -11,11 +12,12 @@ class Downloader {
   final IntRange downloadRange;
   final StreamCacheConfig cacheConfig;
   final Duration timeout;
-  final _client = CustomHttpClient();
+  final _client = CustomHttpClientxx();
   StreamSubscription<List<int>>? _currentSubscription;
   int _receivedBytes = 0;
   bool _done = false;
   Completer<void>? _subscriptionCompleter;
+
   Downloader(
     this.sourceUrl,
     this.downloadRange,
@@ -26,7 +28,8 @@ class Downloader {
   Future<void> download({
     ///If [onError] is provided, handles IO errors (e.g. connection errors) and calls [onError] with the error. Otherwise, closes the stream with the error.
     final void Function(Object e)? onError,
-    final void Function(HttpClientResponse response)? onResponse,
+    final void Function(libdio.Response<libdio.ResponseBody> response)?
+        onResponse,
     final void Function()? onDone,
     required final void Function(List<int> data) onData,
   }) async {
@@ -62,10 +65,10 @@ class Downloader {
   }
 
   Future<void> _listenResponse(
-    final HttpClientResponse response,
+    final libdio.Response<libdio.ResponseBody> response,
     final void Function(List<int> data) onData,
     final void Function()? onDone,
-  ) {
+  ) async {
     final subscriptionCompleter = (_subscriptionCompleter = Completer<void>());
     final buffer = BytesBuilder(copy: false);
     final minChunkSize = cacheConfig.minChunkSize;
@@ -81,7 +84,12 @@ class Downloader {
       subscriptionCompleter.completeError(error);
     }
 
-    final subscription = response.listen(
+    if (null == response.data) {
+      completeError(DownloadException(response.realUri, "resp.data is Null"));
+      return;
+    }
+
+    final subscription = response.data!.stream.listen(
       (data) {
         buffer.add(data);
         if (buffer.length > minChunkSize) {
@@ -170,7 +178,7 @@ class Downloader {
 
 class DownloadException extends HttpException {
   DownloadException(Uri uri, String message)
-    : super('Download Exception: $message', uri: uri);
+      : super('Download Exception: $message', uri: uri);
 }
 
 class DownloadStoppedException extends DownloadException {
@@ -179,5 +187,5 @@ class DownloadStoppedException extends DownloadException {
 
 class DownloadTimedOutException extends DownloadException {
   DownloadTimedOutException(Uri uri, Duration duration)
-    : super(uri, 'Timed out after $duration');
+      : super(uri, 'Timed out after $duration');
 }

@@ -38,7 +38,7 @@ class _LiveDownloadStream {
   final StreamCacheConfig config;
   final bool? cancelOnError;
   final _controller = StreamController<List<int>>(sync: true);
-  final _httpClient = CustomHttpClient();
+  final _httpClient = CustomHttpClientxx();
   _LiveDownloadStream(
     this.downloadUri,
     this.range,
@@ -57,12 +57,19 @@ class _LiveDownloadStream {
 
   void _start() async {
     try {
-      final response = await _httpClient.getUrl(
+      final data = (await _httpClient.getUrl(
         downloadUri,
         range,
         config.combinedRequestHeaders(),
+      ))
+          .data;
+      if (null == data) {
+        throw Exception("client.Get: resp.data is Null");
+      }
+      await _controller.addStream(
+        data.stream,
+        cancelOnError: cancelOnError,
       );
-      await _controller.addStream(response, cancelOnError: cancelOnError);
     } catch (e) {
       if (!_controller.isClosed && _controller.hasListener) {
         _controller.addError(e);
