@@ -12,6 +12,11 @@ class CustomHttpClient {
   CustomHttpClient({this.timeout = const Duration(seconds: 8)}) {
     _client.connectionTimeout = timeout;
     _client.idleTimeout = const Duration(minutes: 5);
+    _client.badCertificateCallback = (_, __, ___) {
+      return true;
+    };
+    _client.userAgent =
+        "Mozilla/5.0 (Linux; Android 14; arm64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.6045.160 Mobile Safari/537.36 Musicxx/77";
   }
 
   Future<HttpClientResponse> getUrl(
