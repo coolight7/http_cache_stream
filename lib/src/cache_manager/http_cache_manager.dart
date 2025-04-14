@@ -15,6 +15,7 @@ class HttpCacheManager {
   final HttpCacheServer _server;
   final GlobalCacheConfig config;
   final Map<String, HttpCacheStream> _streams = {};
+
   HttpCacheManager._(this._server, this.config) {
     _server.start(_streamFromUri);
   }
@@ -26,8 +27,8 @@ class HttpCacheManager {
     final key = _requestKey(sourceUrl);
     HttpCacheStream? httpCacheStream = _streams[key];
     if (httpCacheStream != null) {
-      httpCacheStream
-          .retain(); //Retain the stream to prevent it from being disposed
+      //Retain the stream to prevent it from being disposed
+      httpCacheStream.retain();
     } else {
       final cacheUrl = _server.getCacheUrl(sourceUrl);
       final cacheFiles = file != null

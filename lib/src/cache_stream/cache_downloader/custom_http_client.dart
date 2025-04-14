@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names
+
 import 'dart:io';
 
 import 'package:dio/dio.dart' as libdio;
@@ -14,7 +16,7 @@ abstract class CustomHttpClient {
   Future<libdio.Response<libdio.ResponseBody>> getUrl(
     Uri url,
     IntRange range,
-    HttpHeaderAnyxx requestHeaders,
+    HttpHeaderxx requestHeaders,
   );
 
   Future<libdio.Response<dynamic>> headUrl(
@@ -33,8 +35,9 @@ abstract class CustomHttpClient {
 }
 
 class CustomHttpClientxx extends CustomHttpClient {
-  // ignore: constant_identifier_names
   static const extraNAME_writeErrorLog = "writeErrorLog";
+  static const headerConfigKey_X_PRE_HEAD = "X-PRE-Head";
+
   static libdio.BaseOptions? options;
   static String defExtendsUserAgentStr = "Musicxx/77";
   static final _interceptor = libdio.InterceptorsWrapper(
@@ -102,14 +105,19 @@ class CustomHttpClientxx extends CustomHttpClient {
   Future<libdio.Response<libdio.ResponseBody>> getUrl(
     Uri url,
     IntRange range,
-    HttpHeaderAnyxx requestHeaders,
+    HttpHeaderxx requestHeaders,
   ) async {
     // 检查重定向
-    final realUrl = (await handleHttpRedirect(
-          url,
-          header: requestHeaders,
-        )) ??
-        url;
+    Uri realUrl = url;
+    if (requestHeaders.containsKey(headerConfigKey_X_PRE_HEAD)) {
+      // 预先处理重定向
+      requestHeaders.remove(headerConfigKey_X_PRE_HEAD);
+      realUrl = (await handleHttpRedirect(
+            url,
+            header: requestHeaders,
+          )) ??
+          url;
+    }
     if (realUrl != url) {
       requestHeaders[HttpHeaders.refererHeader] = url.toString();
     }
@@ -187,7 +195,9 @@ class CustomHttpClientxx extends CustomHttpClient {
           },
         ),
       );
-      return resp.realUri;
+      if (null != resp.statusCode) {
+        return resp.realUri;
+      }
     } catch (e) {
       if (kDebugMode) {
         print(e);

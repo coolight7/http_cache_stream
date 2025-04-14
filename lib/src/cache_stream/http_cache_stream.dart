@@ -176,8 +176,8 @@ class HttpCacheStream {
     }
     if (!isComplete()) {
       final error = DownloadStoppedException(sourceUrl);
-      downloadCompleter.future
-          .ignore(); // Prevent unhandled error during completion
+      // Prevent unhandled error during completion
+      downloadCompleter.future.ignore();
       downloadCompleter.completeError(error);
       _addError(error, closeRequests: true);
     }
@@ -196,12 +196,12 @@ class HttpCacheStream {
     }
     _retainCount = 0;
     if (_cacheDownloader != null) {
-      await _cacheDownloader!.cancel().catchError(
-            (_) {},
-          ); //Allow downloader to complete cleanly
+      await _cacheDownloader!
+          .cancel()
+          .catchError((_) {}); //Allow downloader to complete cleanly
       if (isRetained) {
-        return _progressSubject
-            .done; //Check if retained while waiting for download to stop
+        //Check if retained while waiting for download to stop
+        return _progressSubject.done;
       }
     }
     if (_queuedRequests.isNotEmpty) {

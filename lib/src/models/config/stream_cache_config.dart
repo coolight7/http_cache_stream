@@ -90,23 +90,26 @@ class StreamCacheConfig implements CacheConfiguration {
   }
 
   ///Returns an immutable map of all custom request headers.
-  HttpHeaderAnyxx combinedRequestHeaders() {
+  HttpHeaderxx combinedRequestHeaders() {
     return _combineHeaders(_global.requestHeaders, _local.requestHeaders);
   }
 
   ///Returns an immutable map of all custom response headers.
-  HttpHeaderAnyxx combinedResponseHeaders() {
+  HttpHeaderxx combinedResponseHeaders() {
     return _combineHeaders(_global.responseHeaders, _local.responseHeaders);
   }
 
-  HttpHeaderAnyxx _combineHeaders(
+  HttpHeaderxx _combineHeaders(
     HttpHeaderxx global,
     HttpHeaderxx local,
   ) {
     final useGlobal = global.isNotEmpty && useGlobalHeaders;
     final useLocal = local.isNotEmpty;
-    if (!useGlobal && !useLocal) return {};
-    return {if (useGlobal) ...global, if (useLocal) ...local};
+    if (!useGlobal && !useLocal) return Httpxx_c.createHeader();
+    return Httpxx_c.createHeader(data: {
+      if (useGlobal) ...global,
+      if (useLocal) ...local,
+    });
   }
 
   bool _useGlobalCopyCacheHeaders = true;
