@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'package:dio/dio.dart' as libdio;
 import 'package:dio/io.dart';
-import 'package:flutter/foundation.dart';
 import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:http_cache_stream/src/etc/exceptions.dart';
 import 'package:http_cache_stream/src/models/http_range/http_range.dart';
@@ -40,6 +39,7 @@ class CustomHttpClientxx extends CustomHttpClient {
 
   static libdio.BaseOptions? options;
   static String defExtendsUserAgentStr = "Musicxx/77";
+  static void Function(Object e)? onLog;
   static final _interceptor = libdio.InterceptorsWrapper(
     onRequest: (options, handler) {
       // 添加默认ua
@@ -55,13 +55,11 @@ class CustomHttpClientxx extends CustomHttpClient {
           case libdio.DioExceptionType.cancel:
             break;
           default:
-            if (kDebugMode) {
-              print([
-                e.toString(),
-                e.requestOptions.headers.toString(),
-                e.requestOptions.path,
-              ]);
-            }
+            CustomHttpClientxx.onLog?.call([
+              e.toString(),
+              e.requestOptions.headers.toString(),
+              e.requestOptions.path,
+            ]);
         }
       }
       final resp = e.response;
@@ -199,9 +197,7 @@ class CustomHttpClientxx extends CustomHttpClient {
         return resp.realUri;
       }
     } catch (e) {
-      if (kDebugMode) {
-        print(e);
-      }
+      CustomHttpClientxx.onLog?.call(e);
     }
     return null;
   }

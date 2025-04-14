@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:http_cache_stream/src/cache_manager/http_cache_server.dart';
 import 'package:http_cache_stream/src/models/config/stream_cache_config.dart';
 import 'package:http_cache_stream/src/models/metadata/cache_files.dart';
@@ -68,7 +67,7 @@ class HttpCacheManager {
           continue; //Do not delete metadata if the cache file exists
         }
       }
-      if (kDebugMode) print('Deleting cache file: ${file.path}');
+      CustomHttpClientxx.onLog?.call('Deleting cache file: ${file.path}');
       await file.delete();
     }
   }

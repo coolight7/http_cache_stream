@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:http_cache_stream/src/cache_manager/http_request_handler.dart';
 
@@ -27,7 +26,7 @@ class HttpCacheServer {
         }
       },
       onError: (Object e, StackTrace st) {
-        if (kDebugMode) print('HttpCacheStream Proxy server onError: $e');
+        CustomHttpClientxx.onLog?.call('server onError: $e');
       },
       cancelOnError: false,
     );
