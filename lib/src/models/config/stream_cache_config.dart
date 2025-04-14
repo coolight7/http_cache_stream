@@ -105,8 +105,8 @@ class StreamCacheConfig implements CacheConfiguration {
   ) {
     final useGlobal = global.isNotEmpty && useGlobalHeaders;
     final useLocal = local.isNotEmpty;
-    if (!useGlobal && !useLocal) return const {};
-    return Map.unmodifiable({if (useGlobal) ...global, if (useLocal) ...local});
+    if (!useGlobal && !useLocal) return {};
+    return {if (useGlobal) ...global, if (useLocal) ...local};
   }
 
   bool _useGlobalCopyCacheHeaders = true;
