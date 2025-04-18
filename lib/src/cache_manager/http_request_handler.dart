@@ -48,6 +48,8 @@ class RequestHandler {
           }
         } catch (_) {}
       });
+      // 阻止使用 chunked
+      useHeader[HttpHeaders.acceptEncodingHeader] = "identity";
       cacheStream.config.requestHeaders = useHeader;
       final rangeRequest = HttpRangeRequest.parse(httpRequest);
       final streamResponse = await cacheStream.request(

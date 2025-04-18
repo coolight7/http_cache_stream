@@ -115,9 +115,9 @@ class CustomHttpClientxx extends CustomHttpClient {
             header: requestHeaders,
           )) ??
           url;
-    }
-    if (realUrl != url) {
-      requestHeaders[HttpHeaders.refererHeader] = url.toString();
+      if (realUrl != url) {
+        requestHeaders[HttpHeaders.refererHeader] = url.toString();
+      }
     }
     if (!range.isFull) {
       final rangeRequest = HttpRangeRequest.inclusive(range.start, range.end);

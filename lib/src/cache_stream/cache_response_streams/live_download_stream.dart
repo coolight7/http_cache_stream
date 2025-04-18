@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:http_cache_stream/http_cache_stream.dart';
-import 'package:http_cache_stream/src/cache_stream/cache_downloader/custom_http_client.dart';
 import 'package:http_cache_stream/src/models/config/stream_cache_config.dart';
 
 class LiveDownloadStream extends Stream<List<int>> {
   final Uri downloadUri;
   final IntRange range;
   final StreamCacheConfig config;
+
   LiveDownloadStream(this.downloadUri, this.range, this.config);
 
   @override
@@ -39,6 +39,7 @@ class _LiveDownloadStream {
   final bool? cancelOnError;
   final _controller = StreamController<List<int>>(sync: true);
   final _httpClient = CustomHttpClientxx();
+
   _LiveDownloadStream(
     this.downloadUri,
     this.range,
