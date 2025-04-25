@@ -53,7 +53,7 @@ abstract class StreamResponse {
     return effectiveEnd - effectiveStart;
   }
 
-  ///The effective end of the response. If the response is a full response, this will be the source length. If the response is a partial response, this will be the end of the range.
+  ///The effective end of the response. If no end is specified, this will be the source length.
   int? get effectiveEnd {
     return range.end ?? sourceLength;
   }

@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:mime/mime.dart';
 
+import '../../http_cache_stream.dart';
 import '../models/http_range/http_range.dart';
 import '../models/http_range/http_range_request.dart';
 import '../models/http_range/http_range_response.dart';
@@ -63,7 +63,7 @@ class RequestHandler {
   ) {
     final httpResponse = httpRequest.response;
     httpResponse.headers.clear();
-    String? contentTypeHeader;
+    String? cachedContentType;
     int? sourceLength = streamResponse.sourceLength;
     if (cacheHeaders != null) {
       sourceLength ??= cacheHeaders.sourceLength;
@@ -71,33 +71,37 @@ class RequestHandler {
         httpResponse.headers.set(
           HttpHeaders.acceptRangesHeader,
           'bytes',
-        ); //Indicate that the server accepts range requests
+        );
       }
-      contentTypeHeader = cacheHeaders.get(HttpHeaders.contentTypeHeader);
+      cachedContentType = cacheHeaders.get(HttpHeaders.contentTypeHeader);
       if (cacheConfig.copyCachedResponseHeaders) {
         cacheHeaders.forEach(httpResponse.headers.set);
       }
     }
-    contentTypeHeader ??=
-        lookupMimeType(httpRequest.uri.path) ?? 'application/octet-stream';
-    httpResponse.headers.set(HttpHeaders.contentTypeHeader, contentTypeHeader);
     cacheConfig.combinedResponseHeaders().forEach(httpResponse.headers.set);
+
+    if (httpResponse.headers.value(HttpHeaders.contentTypeHeader) == null) {
+      final contentType = cachedContentType ??
+          lookupMimeType(httpRequest.uri.path) ??
+          'application/octet-stream';
+      httpResponse.headers.set(HttpHeaders.contentTypeHeader, contentType);
+    }
 
     if (rangeRequest != null) {
       final rangeResponse = HttpRangeResponse.inclusive(
-        rangeRequest.start,
-        rangeRequest.end ?? sourceLength,
+        streamResponse.effectiveStart,
+        streamResponse.effectiveEnd,
         sourceLength: sourceLength,
       );
-      httpResponse.contentLength = rangeResponse.contentLength ?? -1;
       httpResponse.headers.set(
         HttpHeaders.contentRangeHeader,
         rangeResponse.header,
       );
+      httpResponse.contentLength = rangeResponse.contentLength ?? -1;
       httpResponse.statusCode = HttpStatus.partialContent;
       assert(
         HttpRange.isEqual(rangeRequest, rangeResponse),
-        'Invalid range: request: $rangeRequest | response: $rangeResponse ',
+        'Invalid HttpRange: request: $rangeRequest | response: $rangeResponse | StreamResponse.Range: ${streamResponse.range}',
       );
     } else {
       httpResponse.contentLength = sourceLength ?? -1;

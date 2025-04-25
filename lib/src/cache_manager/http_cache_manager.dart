@@ -116,7 +116,7 @@ class HttpCacheManager {
   Stream<File> inactiveCacheFiles() async* {
     if (!cacheDir.existsSync()) return;
     final Set<String> activeFilePaths = {};
-    for (final stream in allCacheStreams) {
+    for (final stream in allStreams) {
       activeFilePaths.addAll(stream.metadata.cacheFiles.paths);
     }
     await for (final entry
@@ -133,7 +133,7 @@ class HttpCacheManager {
   Future<List<CacheMetadata>> cacheMetadataList({final bool? active}) async {
     final List<CacheMetadata> cacheMetadata = [];
     if (active != false) {
-      cacheMetadata.addAll(allCacheStreams.map((stream) => stream.metadata));
+      cacheMetadata.addAll(allStreams.map((stream) => stream.metadata));
     }
     if (active != true) {
       await for (final file in inactiveCacheFiles().where(
@@ -207,7 +207,7 @@ class HttpCacheManager {
   }
 
   Directory get cacheDir => config.cacheDirectory;
-  Iterable<HttpCacheStream> get allCacheStreams => _streams.values;
+  Iterable<HttpCacheStream> get allStreams => _streams.values;
   bool _disposed = false;
   bool get isDisposed => _disposed;
 
