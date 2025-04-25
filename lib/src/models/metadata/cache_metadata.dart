@@ -11,9 +11,10 @@ class CacheMetadata {
   const CacheMetadata._(this.cacheFiles, this.sourceUrl, {this.headers});
 
   ///Constructs [CacheMetadata] from [CacheFiles] and sourceUrl.
-  factory CacheMetadata.construct(CacheFiles cacheFiles, Uri sourceUrl) {
+  factory CacheMetadata.construct(
+      final CacheFiles cacheFiles, final Uri sourceUrl) {
     CachedResponseHeaders? headers;
-    if (cacheFiles.metadata.existsSync()) {
+    if (cacheFiles.metadata.statSync().size > 0) {
       final json = jsonDecode(cacheFiles.metadata.readAsStringSync())
           as Map<String, dynamic>;
       headers = CachedResponseHeaders.fromJson(json['headers']);
@@ -24,11 +25,11 @@ class CacheMetadata {
 
   ///Attempts to load the metadata file for the given [file]. Returns null if the metadata file does not exist.
   ///The [file] parameter accepts metadata, partial, or complete cache files. The metadata file is determined by the file extension.
-  static CacheMetadata? load(File file) {
+  static CacheMetadata? load(final File file) {
     return fromCacheFiles(CacheFiles.fromFile(file));
   }
 
-  static CacheMetadata? fromCacheFiles(CacheFiles cacheFiles) {
+  static CacheMetadata? fromCacheFiles(final CacheFiles cacheFiles) {
     final metadataFile = cacheFiles.metadata;
     if (!metadataFile.existsSync()) return null;
     final metadataJson =
@@ -65,15 +66,16 @@ class CacheMetadata {
         return 1.0;
       } else if (!hasSourceLength ||
           partialCacheSize > sourceLength ||
-          headers?.acceptsRangeRequests != true) {
+          headers?.canResumeDownload() != true) {
         partialCacheFile
-            .delete(); //Reset the cache, since the download cannot be resumed
+            .deleteSync(); //Reset the cache, since the download cannot be resumed
         return 0.0;
       } else {
         return ((partialCacheSize / sourceLength) * 100).floor() /
             100; //Round to 2 decimal places
       }
     } catch (e) {
+      assert(false, 'CacheMetadata: cacheProgress: error $e');
       return null;
     }
   }

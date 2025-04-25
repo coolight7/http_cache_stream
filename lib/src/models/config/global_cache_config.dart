@@ -19,6 +19,8 @@ class GlobalCacheConfig implements CacheConfiguration {
     this.customHttpClient,
     this.copyCachedResponseHeaders = false,
     this.validateOutdatedCache = false,
+    this.savePartialCache = true,
+    this.saveMetadata = true,
     this.onCacheDone,
   })  : httpClient = customHttpClient ?? Client(),
         requestHeaders = requestHeaders ?? {},
@@ -48,6 +50,12 @@ class GlobalCacheConfig implements CacheConfiguration {
 
   @override
   bool validateOutdatedCache;
+
+  @override
+  bool savePartialCache;
+
+  @override
+  bool saveMetadata;
 
   int? _rangeRequestSplitThreshold;
   @override

@@ -8,18 +8,28 @@ class HttpCacheServer {
   final Uri source;
   final LocalCacheServer _localCacheServer;
   final Duration autoDisposeDelay;
-  final HttpCacheStream Function(Uri sourceUrl) _createCacheStream;
+
+  /// The configuration for each generated stream.
+  final StreamCacheConfig config;
+  final HttpCacheStream Function(Uri sourceUrl, {StreamCacheConfig config})
+      _createCacheStream;
   HttpCacheServer(this.source, this._localCacheServer, this.autoDisposeDelay,
-      this._createCacheStream) {
+      this.config, this._createCacheStream) {
     _localCacheServer.start((request) {
       final sourceUrl = getSourceUrl(request.uri);
-      final cacheStream = _createCacheStream(sourceUrl);
+      final cacheStream = _createCacheStream(sourceUrl, config: config);
       request.response.done.catchError((_) {}).whenComplete(() {
-        Timer(
-            autoDisposeDelay,
-            () => cacheStream
-                .dispose()
-                .ignore()); // Decrease the stream's retainCount for autoDispose
+        if (isDisposed) {
+          cacheStream
+              .dispose()
+              .ignore(); // Decrease retainCount immediately if the server is disposed
+        } else {
+          Timer(
+              autoDisposeDelay,
+              () => cacheStream
+                  .dispose()
+                  .ignore()); // Decrease the stream's retainCount for autoDispose
+        }
       });
       return cacheStream;
     });
@@ -48,9 +58,10 @@ class HttpCacheServer {
   Future<void> dispose() {
     if (_completer.isCompleted) {
       return _completer.future;
+    } else {
+      _completer.complete();
+      return _localCacheServer.close();
     }
-    _completer.complete();
-    return _localCacheServer.close();
   }
 
   final _completer = Completer<void>();

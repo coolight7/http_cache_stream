@@ -7,8 +7,13 @@ import 'package:http_cache_stream/src/etc/const.dart';
 import 'package:path/path.dart' as p;
 
 class CacheFiles {
+  ///The complete cache file. This file contains the fully downloaded content.
   final File complete;
+
+  ///The partial cache file. This file contains the partially downloaded content.
   final File partial;
+
+  ///The metadata file. This file contains the metadata for the cache, including headers and other information.
   final File metadata;
   const CacheFiles._({
     required this.complete,
@@ -16,14 +21,13 @@ class CacheFiles {
     required this.metadata,
   });
 
-  List<File> get files => [complete, partial, metadata];
   List<String> get paths => [complete.path, partial.path, metadata.path];
   Directory get directory => complete.parent;
 
   ///Deletes the cache file and metadata file. If [partialOnly] is true, only partially cached files will be deleted.
   ///Returns true if any files were deleted.
-  Future<bool> delete({bool partialOnly = false}) async {
-    final cacheFiles = files;
+  Future<bool> delete({final bool partialOnly = false}) async {
+    final cacheFiles = [complete, partial, metadata];
     if (partialOnly) {
       if (complete.existsSync()) {
         return false;
@@ -42,21 +46,22 @@ class CacheFiles {
     return deleted;
   }
 
-  factory CacheFiles.fromFile(File file) {
-    final cacheFile = CacheFileType.completeFile(file);
+  ///Creates a [CacheFiles] instance from the given [file]. The file can be a complete, partial, or metadata cache file.
+  factory CacheFiles.fromFile(final File file) {
+    final completeFile = CacheFileType.completeFile(file);
     return CacheFiles._(
-      complete: cacheFile,
-      partial: CacheFileType.partialFile(cacheFile),
-      metadata: CacheFileType.metaDataFile(cacheFile),
+      complete: completeFile,
+      partial: CacheFileType.partialFile(completeFile),
+      metadata: CacheFileType.metaDataFile(completeFile),
     );
   }
 
-  factory CacheFiles.fromUrl(Directory cacheDir, Uri sourceUrl) {
-    final cacheFile = _defaultCacheFile(cacheDir, sourceUrl);
+  factory CacheFiles.fromUrl(final Directory cacheDir, final Uri sourceUrl) {
+    final completeFile = _defaultCacheFile(cacheDir, sourceUrl);
     return CacheFiles._(
-      complete: cacheFile,
-      partial: CacheFileType.partialFile(cacheFile),
-      metadata: CacheFileType.metaDataFile(cacheFile),
+      complete: completeFile,
+      partial: CacheFileType.partialFile(completeFile),
+      metadata: CacheFileType.metaDataFile(completeFile),
     );
   }
 

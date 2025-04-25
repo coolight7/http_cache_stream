@@ -45,6 +45,18 @@ abstract interface class CacheConfiguration {
   /// The HTTP client used to download cache.
   Client get httpClient;
 
+  /// When false, deletes partial cache files (including metadata) when a http cache stream is disposed before cache is complete.
+  /// Default is true.
+  bool get savePartialCache;
+  set savePartialCache(bool value);
+
+  /// When false, deletes the metadata file after the cache is complete.
+  /// Metadata is always saved for incomplete cache files when [savePartialCache] is true, so the download can be resumed.
+  /// This value should only be set to false if you have no intention of creating a cache stream for the cache file again.
+  /// Default is true.
+  bool get saveMetadata;
+  set saveMetadata(bool value);
+
   static int? validateRangeRequestSplitThreshold(int? value) {
     if (value == null) return null;
     return RangeError.checkNotNegative(value, 'RangeRequestSplitThreshold');

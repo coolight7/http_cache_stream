@@ -23,18 +23,18 @@ class RequestHandler {
     _closed = true;
   }
 
-  void stream(HttpCacheStream cacheStream) async {
+  void stream(final HttpCacheStream cacheStream) async {
     if (isClosed) return; //Request closed before we could start streaming
     Object? error;
+    StreamResponse? streamResponse;
     try {
       final rangeRequest = HttpRangeRequest.parse(httpRequest);
-      final streamResponse = await cacheStream.request(
-        rangeRequest?.start,
-        rangeRequest?.endEx,
+      streamResponse = await cacheStream.request(
+        start: rangeRequest?.start,
+        end: rangeRequest?.endEx,
       );
       if (isClosed) {
-        streamResponse.cancel(); //Drain buffered data to prevent memory leak
-        return; //Request closed before we could send the response
+        return; //Request closed before we could start streaming
       }
       _setHeaders(
         rangeRequest,
@@ -48,21 +48,25 @@ class RequestHandler {
     } catch (e) {
       error = e;
     } finally {
+      streamResponse
+          ?.close(); //Close the response; may be done automatically by the [addStream] method, but we do it here to be sure.
       _streaming = false;
       close(error);
     }
   }
 
   void _setHeaders(
-    HttpRangeRequest? rangeRequest,
-    StreamCacheConfig cacheConfig,
-    CachedResponseHeaders? cacheHeaders,
-    StreamResponse streamResponse,
+    final HttpRangeRequest? rangeRequest,
+    final StreamCacheConfig cacheConfig,
+    final CachedResponseHeaders? cacheHeaders,
+    final StreamResponse streamResponse,
   ) {
     final httpResponse = httpRequest.response;
     httpResponse.headers.clear();
     String? contentTypeHeader;
+    int? sourceLength = streamResponse.sourceLength;
     if (cacheHeaders != null) {
+      sourceLength ??= cacheHeaders.sourceLength;
       if (cacheHeaders.acceptsRangeRequests) {
         httpResponse.headers.set(
           HttpHeaders.acceptRangesHeader,
@@ -82,8 +86,8 @@ class RequestHandler {
     if (rangeRequest != null) {
       final rangeResponse = HttpRangeResponse.inclusive(
         rangeRequest.start,
-        streamResponse.effectiveEnd,
-        sourceLength: streamResponse.sourceLength,
+        rangeRequest.end ?? sourceLength,
+        sourceLength: sourceLength,
       );
       httpResponse.contentLength = rangeResponse.contentLength ?? -1;
       httpResponse.headers.set(
@@ -96,12 +100,12 @@ class RequestHandler {
         'Invalid range: request: $rangeRequest | response: $rangeResponse ',
       );
     } else {
-      httpResponse.contentLength = streamResponse.sourceLength ?? -1;
+      httpResponse.contentLength = sourceLength ?? -1;
       httpResponse.statusCode = HttpStatus.ok;
     }
   }
 
-  void close([Object? error]) {
+  void close([final Object? error]) {
     if (_closed) return;
     _closed = true;
     if (error != null && !_streaming) {

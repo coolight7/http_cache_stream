@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:http_cache_stream/src/models/http_range/http_range.dart';
+
 import '../models/http_range/http_range_request.dart';
 import '../models/http_range/http_range_response.dart';
 
@@ -19,8 +21,8 @@ class CacheSourceChangedException extends InvalidCacheException {
   CacheSourceChangedException(Uri uri) : super(uri, 'Cache source changed');
 }
 
-class InvalidRangeRequestException extends InvalidCacheException {
-  InvalidRangeRequestException(
+class HttpRangeException extends InvalidCacheException {
+  HttpRangeException(
     Uri uri,
     HttpRangeRequest request,
     HttpRangeResponse? response,
@@ -28,6 +30,16 @@ class InvalidRangeRequestException extends InvalidCacheException {
           uri,
           'Invalid Download Range Response | Request: $request | Response: $response',
         );
+
+  static void validate(
+    final Uri url,
+    final HttpRangeRequest request,
+    final HttpRangeResponse? response,
+  ) {
+    if (response == null || !HttpRange.isEqual(request, response)) {
+      throw HttpRangeException(url, request, response);
+    }
+  }
 }
 
 class InvalidCacheLengthException extends InvalidCacheException {
@@ -44,10 +56,20 @@ class CacheStreamDisposedException extends StateError {
       : super('HttpCacheStream disposed | $uri');
 }
 
-class InvalidHttpStatusCode extends HttpException {
-  InvalidHttpStatusCode(Uri uri, int expected, int result)
+class HttpStatusCodeException extends HttpException {
+  HttpStatusCodeException(Uri url, int expected, int result)
       : super(
           'Invalid HTTP status code | Expected: $expected | Result: $result',
-          uri: uri,
+          uri: url,
         );
+
+  static void validate(
+    final Uri url,
+    final int expected,
+    final int result,
+  ) {
+    if (result != expected) {
+      throw HttpStatusCodeException(url, expected, result);
+    }
+  }
 }

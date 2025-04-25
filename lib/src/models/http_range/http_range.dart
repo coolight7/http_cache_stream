@@ -7,7 +7,7 @@ abstract class HttpRange {
       : assert(start >= 0, 'start must be null or non-negative'),
         assert(
           end == null || (end >= start),
-          'end must be null or greater than or equal to start',
+          'end must be null or greater than or equal to start (start: $start, end: $end, sourceLength: $sourceLength)',
         );
 
   ///Validates if two ranges are equal

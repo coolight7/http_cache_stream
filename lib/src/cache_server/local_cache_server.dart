@@ -7,7 +7,7 @@ import 'package:http_cache_stream/src/cache_manager/http_request_handler.dart';
 class LocalCacheServer {
   final HttpServer _httpServer;
   final Uri serverUri;
-  LocalCacheServer(this._httpServer)
+  LocalCacheServer._(this._httpServer)
       : serverUri = Uri(
           scheme: 'http',
           host: _httpServer.address.host,
@@ -16,7 +16,7 @@ class LocalCacheServer {
 
   static Future<LocalCacheServer> init() async {
     final httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    return LocalCacheServer(httpServer);
+    return LocalCacheServer._(httpServer);
   }
 
   void start(
