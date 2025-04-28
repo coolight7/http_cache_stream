@@ -11,14 +11,17 @@ class CacheProgressBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: StreamBuilder<double?>(
         stream: httpCacheStream.progressStream,
+        initialData: httpCacheStream.progress, //Obtain the initial progress
         builder: (context, snapshot) {
           final progress = snapshot.data ?? httpCacheStream.progress;
+          final error = snapshot.error;
+
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               LinearProgressIndicator(value: progress),
               if (progress != null) _ProgressTextPercentage(progress),
-              if (snapshot.hasError) _ErrorText(snapshot.error!),
+              if (error != null) _ErrorText(error),
             ],
           );
         },

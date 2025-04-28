@@ -117,6 +117,25 @@ cacheStream.progressStream.listen((progress) {
 cacheStream.dispose(); // Release when done
 ```
 
+## HttpCacheServer
+
+Creates a local proxy server that dynamically handles URLs from the same source. Ideal for HLS/DASH streaming where a master playlist references multiple segment files. Cache streams are automatically created and disposed.
+
+```dart
+// Create a server for a base URL 
+final sourceUri = Uri.parse('https://example.com/'); 
+final cacheServer = await cacheManager.createServer(sourceUri);
+
+// The URI of the cache server. Requests to this URI will be fulfilled from the source URI.
+final serverUri = cacheServer.uri;
+
+// Manually obtain a cache url
+final hlsCacheUrl = cacheServer.getCacheUrl(Uri.parse('https://example.com/video.m3u8'));
+
+cacheServer.dispose(); // Release when done
+```
+
+
 ## CacheMetadata
 Each cached file has associated metadata stored in a companion .metadata file, which contains:
 
