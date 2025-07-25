@@ -88,14 +88,13 @@ class CustomHttpClientxx extends CustomHttpClient {
   static HttpClient _createHttpClient() {
     final client = HttpClient(
       context: SecurityContext(withTrustedRoots: false),
-    );
-    client.badCertificateCallback = (
-      X509Certificate cert,
-      String host,
-      int port,
-    ) {
-      return true;
-    };
+    )..badCertificateCallback = (
+        X509Certificate cert,
+        String host,
+        int port,
+      ) {
+        return true;
+      };
     return client;
   }
 
