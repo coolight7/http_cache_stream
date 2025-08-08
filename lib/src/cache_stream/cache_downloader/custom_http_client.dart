@@ -86,16 +86,13 @@ class CustomHttpClientxx extends CustomHttpClient {
   }
 
   static HttpClient _createHttpClient() {
-    final client = HttpClient(
-      context: SecurityContext(withTrustedRoots: false),
-    )..badCertificateCallback = (
-        X509Certificate cert,
-        String host,
-        int port,
-      ) {
+    final context = SecurityContext(withTrustedRoots: false)
+      ..allowLegacyUnsafeRenegotiation = true;
+    return HttpClient(context: context)
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) {
         return true;
-      };
-    return client;
+      }
+      ..idleTimeout = const Duration(minutes: 2);
   }
 
   @override
