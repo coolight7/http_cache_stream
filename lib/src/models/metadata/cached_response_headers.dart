@@ -127,6 +127,8 @@ class CachedResponseHeaders {
     final Map<String, String> headers = {...response.headers};
     final contentRangeHeader = headers.remove(HttpHeaders.contentRangeHeader);
     if (contentRangeHeader != null) {
+      headers[HttpHeaders.acceptRangesHeader] =
+          'bytes'; // Ensure accept-ranges is set to bytes for range responses. Not all servers do this.
       final rangeSourceLength = HttpRangeResponse.parse(
         contentRangeHeader,
         response.contentLength,
@@ -196,14 +198,7 @@ class CachedResponseHeaders {
     final Map<String, String> headers = {};
     json.forEach((key, value) {
       if (value is List) {
-        switch (value.length) {
-          case 1:
-            headers[key] = value.first.toString();
-          case > 1:
-            headers[key] = value.join(', ');
-          default:
-            break;
-        }
+        headers[key] = value.join(', ');
       } else if (value != null) {
         headers[key] = value.toString();
       }

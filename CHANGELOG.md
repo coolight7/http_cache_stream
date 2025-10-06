@@ -1,3 +1,7 @@
+## 0.0.3
+
+* Add acceptRangesHeader to partial content response headers
+
 ## 0.0.2
 
 * Added an experimental HttpCacheServer that automatically creates and disposes HttpCacheStream's for a specified source. This enables compatibility with dynamic URLs such as HLS streams. 

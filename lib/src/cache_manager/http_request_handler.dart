@@ -16,11 +16,14 @@ class RequestHandler {
   }
 
   void _awaitDone() async {
-    httpRequest.response.bufferOutput = false;
-    httpRequest.response.statusCode = HttpStatus
-        .internalServerError; //Set default status code to 500, in case of error
-    await httpRequest.response.done.catchError((_) {});
-    _closed = true;
+    try {
+      httpRequest.response.bufferOutput = false;
+      httpRequest.response.statusCode = HttpStatus
+          .internalServerError; //Set default status code to 500, in case of error
+      await httpRequest.response.done.catchError((_) {});
+    } finally {
+      _closed = true;
+    }
   }
 
   void stream(final HttpCacheStream cacheStream) async {
@@ -48,10 +51,10 @@ class RequestHandler {
     } catch (e) {
       error = e;
     } finally {
-      streamResponse
-          ?.close(); //Close the response; may be done automatically by the [addStream] method, but we do it here to be sure.
       _streaming = false;
       close(error);
+      streamResponse
+          ?.close(); //Close the response; may be done automatically by the [addStream] method, but we do it here to be sure.
     }
   }
 
