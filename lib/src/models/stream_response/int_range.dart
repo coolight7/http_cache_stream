@@ -1,9 +1,11 @@
+import 'package:http_cache_stream/src/models/http_range/http_range_request.dart';
+
 ///A class that represents a range of exclusive integers, used for stream ranges.
 class IntRange {
   final int start;
   final int? end;
   const IntRange([this.start = 0, this.end])
-    : assert(start >= 0 && (end == null || end >= start));
+      : assert(start >= 0 && (end == null || end >= start));
 
   static IntRange full() => const IntRange(0);
 
@@ -39,6 +41,8 @@ class IntRange {
   }
 
   bool get isFull => start == 0 && end == null;
+
+  HttpRangeRequest get rangeRequest => HttpRangeRequest.inclusive(start, end);
 
   @override
   String toString() => 'IntRange($start, $end)';

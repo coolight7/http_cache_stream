@@ -2,21 +2,29 @@ import 'dart:io';
 
 import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:http_cache_stream/src/cache_manager/http_request_handler.dart';
+import 'package:http_cache_stream/src/cache_stream/cache_downloader/custom_http_client.dart';
 
-class HttpCacheServer {
+class LocalCacheServer {
   final HttpServer _httpServer;
-  HttpCacheServer(this._httpServer);
+  final Uri serverUri;
+  LocalCacheServer._(this._httpServer)
+      : serverUri = Uri(
+          scheme: 'http',
+          host: _httpServer.address.host,
+          port: _httpServer.port,
+        );
 
-  static Future<HttpCacheServer> init() async {
+  static Future<LocalCacheServer> init() async {
     final httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    return HttpCacheServer(httpServer);
+    return LocalCacheServer._(httpServer);
   }
 
-  void start(final HttpCacheStream? Function(Uri uri) getCacheStream) {
+  void start(
+      final HttpCacheStream? Function(HttpRequest request) getCacheStream) {
     _httpServer.listen(
       (request) {
         final httpCacheStream =
-            request.method == 'GET' ? getCacheStream(request.uri) : null;
+            request.method == 'GET' ? getCacheStream(request) : null;
         if (httpCacheStream != null) {
           final requestHandler = RequestHandler(request);
           requestHandler.stream(httpCacheStream);
@@ -26,7 +34,8 @@ class HttpCacheServer {
         }
       },
       onError: (Object e, StackTrace st) {
-        CustomHttpClientxx.onLog?.call('server onError: $e');
+        CustomHttpClientxx.onLog?.call(
+            'HttpCacheStream Proxy server onError: $e\n${st.toString()}');
       },
       cancelOnError: false,
     );
@@ -34,15 +43,10 @@ class HttpCacheServer {
 
   Uri getCacheUrl(Uri sourceUrl) {
     return sourceUrl.replace(
-      scheme: 'http',
-      host: InternetAddress.loopbackIPv4.address,
-      port: _httpServer.port,
-    );
+        scheme: serverUri.scheme, host: serverUri.host, port: serverUri.port);
   }
 
   Future<void> close() {
     return _httpServer.close(force: true);
   }
-
-  int get port => _httpServer.port;
 }

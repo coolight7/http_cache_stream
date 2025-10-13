@@ -11,29 +11,7 @@ import 'package:http_cache_stream/src/models/http_range/http_range_request.dart'
 import 'package:http_cache_stream/src/models/http_range/http_range_response.dart';
 import 'package:util_xx/Httpxx.dart';
 
-abstract class CustomHttpClient {
-  Future<libdio.Response<libdio.ResponseBody>> getUrl(
-    Uri url,
-    IntRange range,
-    HttpHeaderxx requestHeaders,
-  );
-
-  Future<libdio.Response<dynamic>> headUrl(
-    Uri url, [
-    Map<String, Object>? requestHeaders,
-  ]);
-
-  Future<Uri?> handleHttpRedirect(
-    Uri url, {
-    HttpHeaderxx? header,
-  });
-
-  void close({bool force = true});
-
-  bool get isClosed;
-}
-
-class CustomHttpClientxx extends CustomHttpClient {
+class CustomHttpClientxx {
   static const extraNAME_writeErrorLog = "writeErrorLog";
   static const headerConfigKey_X_PRE_HEAD = "X-PRE-Head";
 
@@ -74,7 +52,6 @@ class CustomHttpClientxx extends CustomHttpClient {
   late final libdio.Dio client;
   bool _closed = false;
 
-  @override
   bool get isClosed => _closed;
 
   CustomHttpClientxx() {
@@ -95,7 +72,6 @@ class CustomHttpClientxx extends CustomHttpClient {
       ..idleTimeout = const Duration(minutes: 2);
   }
 
-  @override
   Future<libdio.Response<libdio.ResponseBody>> getUrl(
     Uri url,
     IntRange range,
@@ -103,6 +79,8 @@ class CustomHttpClientxx extends CustomHttpClient {
   ) async {
     // 检查重定向
     Uri realUrl = url;
+    requestHeaders = Httpxx_c.createHeader(data: requestHeaders);
+    requestHeaders[HttpHeaders.acceptEncodingHeader] = 'identity';
     if (requestHeaders.containsKey(headerConfigKey_X_PRE_HEAD)) {
       // 预先处理重定向
       requestHeaders.remove(headerConfigKey_X_PRE_HEAD);
@@ -115,6 +93,7 @@ class CustomHttpClientxx extends CustomHttpClient {
         requestHeaders[HttpHeaders.refererHeader] = url.toString();
       }
     }
+
     if (!range.isFull) {
       final rangeRequest = HttpRangeRequest.inclusive(range.start, range.end);
       final useHeader = Httpxx_c.createHeader(data: requestHeaders);
@@ -126,10 +105,10 @@ class CustomHttpClientxx extends CustomHttpClient {
           responseType: libdio.ResponseType.stream,
         ),
       );
-      final rangeResponse = HttpRangeResponse.parse(resp.headers);
+      final rangeResponse = HttpRangeResponse.parseFromHeader(resp.headers.map);
       if (rangeResponse == null ||
           !HttpRange.isEqual(rangeRequest, rangeResponse)) {
-        throw InvalidRangeRequestException(
+        throw HttpRangeException(
           realUrl,
           rangeRequest,
           rangeResponse,
@@ -148,17 +127,18 @@ class CustomHttpClientxx extends CustomHttpClient {
       );
       final code = resp.statusCode;
       if (null != code && code ~/ 100 != 2) {
-        throw InvalidHttpStatusCode(url, HttpStatus.ok, code);
+        throw HttpStatusCodeException(url, HttpStatus.ok, code);
       }
       return resp;
     }
   }
 
-  @override
   Future<libdio.Response<dynamic>> headUrl(
     Uri url, [
-    Map<String, Object>? requestHeaders,
+    Map<String, String>? requestHeaders,
   ]) async {
+    requestHeaders ??= Httpxx_c.createHeader();
+    requestHeaders[HttpHeaders.acceptEncodingHeader] = 'identity';
     final response = await client.headUri(
       url,
       options: libdio.Options(
@@ -167,12 +147,11 @@ class CustomHttpClientxx extends CustomHttpClient {
     );
     final code = response.statusCode;
     if (null != code && code ~/ 100 != 2) {
-      throw InvalidHttpStatusCode(url, HttpStatus.ok, code);
+      throw HttpStatusCodeException(url, HttpStatus.ok, code);
     }
     return response;
   }
 
-  @override
   Future<Uri?> handleHttpRedirect(
     Uri url, {
     HttpHeaderAnyxx? header,
@@ -198,9 +177,10 @@ class CustomHttpClientxx extends CustomHttpClient {
     return null;
   }
 
-  @override
   void close({bool force = true}) {
-    if (_closed) return;
+    if (_closed) {
+      return;
+    }
     _closed = true;
     return client.close(force: force);
   }

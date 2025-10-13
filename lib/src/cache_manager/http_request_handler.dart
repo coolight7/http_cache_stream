@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:http_cache_stream/http_cache_stream.dart';
-import 'package:http_cache_stream/src/models/config/stream_cache_config.dart';
+import 'package:flutter/foundation.dart';
+import 'package:http_cache_stream/src/cache_stream/cache_downloader/custom_http_client.dart';
 import 'package:mime/mime.dart';
-import 'package:string_util_xx/StringUtilxx.dart';
-import 'package:util_xx/Httpxx.dart';
+import 'package:string_util_xx/string_util_xx.dart';
+import 'package:util_xx/util_xx.dart';
 
+import '../../http_cache_stream.dart';
 import '../models/http_range/http_range.dart';
 import '../models/http_range/http_range_request.dart';
 import '../models/http_range/http_range_response.dart';
@@ -19,15 +20,20 @@ class RequestHandler {
   }
 
   void _awaitDone() async {
-    httpRequest.response.bufferOutput = false;
-    httpRequest.response.statusCode = HttpStatus
-        .internalServerError; //Set default status code to 500, in case of error
-    await httpRequest.response.done.catchError((_) {});
-    _closed = true;
+    try {
+      httpRequest.response.bufferOutput = false;
+      httpRequest.response.statusCode = HttpStatus
+          .internalServerError; //Set default status code to 500, in case of error
+      await httpRequest.response.done.catchError((_) {});
+    } finally {
+      _closed = true;
+    }
   }
 
-  void stream(HttpCacheStream cacheStream) async {
+  void stream(final HttpCacheStream cacheStream) async {
+    if (isClosed) return; //Request closed before we could start streaming
     Object? error;
+    StreamResponse? streamResponse;
     try {
       final useHeader = Httpxx_c.createHeader();
       httpRequest.headers.forEach((name, values) {
@@ -42,6 +48,10 @@ class RequestHandler {
           return;
         }
         try {
+          if (kDebugMode && values.length > 1) {
+            CustomHttpClientxx.onLog
+                ?.call("[warning] Httpreq header-multi-value; $values");
+          }
           final val = values.firstOrNull;
           if (null != val) {
             useHeader[name] = val;
@@ -52,13 +62,12 @@ class RequestHandler {
       useHeader[HttpHeaders.acceptEncodingHeader] = "identity";
       cacheStream.config.requestHeaders = useHeader;
       final rangeRequest = HttpRangeRequest.parse(httpRequest);
-      final streamResponse = await cacheStream.request(
-        rangeRequest?.start,
-        rangeRequest?.endEx,
+      streamResponse = await cacheStream.request(
+        start: rangeRequest?.start,
+        end: rangeRequest?.endEx,
       );
       if (isClosed) {
-        streamResponse.cancel(); //Drain buffered data to prevent memory leak
-        return; //Request closed before we could send the response
+        return; //Request closed before we could start streaming
       }
       _setHeaders(
         rangeRequest,
@@ -74,63 +83,68 @@ class RequestHandler {
     } finally {
       _streaming = false;
       close(error);
+      streamResponse
+          ?.close(); //Close the response; may be done automatically by the [addStream] method, but we do it here to be sure.
     }
   }
 
   void _setHeaders(
-    HttpRangeRequest? rangeRequest,
-    StreamCacheConfig cacheConfig,
-    CachedResponseHeaders? cacheHeaders,
-    StreamResponse streamResponse,
+    final HttpRangeRequest? rangeRequest,
+    final StreamCacheConfig cacheConfig,
+    final CachedResponseHeaders? cacheHeaders,
+    final StreamResponse streamResponse,
   ) {
     final httpResponse = httpRequest.response;
     httpResponse.headers.clear();
-    String? contentTypeHeader;
+    String? cachedContentType;
+    int? sourceLength = streamResponse.sourceLength;
     if (cacheHeaders != null) {
+      sourceLength ??= cacheHeaders.sourceLength;
       if (cacheHeaders.acceptsRangeRequests) {
         httpResponse.headers.set(
           HttpHeaders.acceptRangesHeader,
           'bytes',
-        ); //Indicate that the server accepts range requests
+        );
       }
-      contentTypeHeader = cacheHeaders.get(HttpHeaders.contentTypeHeader);
+      cachedContentType = cacheHeaders.get(HttpHeaders.contentTypeHeader);
       if (cacheConfig.copyCachedResponseHeaders) {
         cacheHeaders.forEach(httpResponse.headers.set);
       }
     }
-    contentTypeHeader ??=
-        lookupMimeType(httpRequest.uri.path) ?? 'application/octet-stream';
-    httpResponse.headers.set(HttpHeaders.contentTypeHeader, contentTypeHeader);
     cacheConfig.combinedResponseHeaders().forEach(httpResponse.headers.set);
+
+    if (httpResponse.headers.value(HttpHeaders.contentTypeHeader) == null) {
+      final contentType = cachedContentType ??
+          lookupMimeType(httpRequest.uri.path) ??
+          'application/octet-stream';
+      httpResponse.headers.set(HttpHeaders.contentTypeHeader, contentType);
+    }
 
     if (rangeRequest != null) {
       final rangeResponse = HttpRangeResponse.inclusive(
-        rangeRequest.start,
+        streamResponse.effectiveStart,
         streamResponse.effectiveEnd,
-        sourceLength: streamResponse.sourceLength,
+        sourceLength: sourceLength,
       );
-      httpResponse.contentLength = rangeResponse.contentLength ?? -1;
       httpResponse.headers.set(
         HttpHeaders.contentRangeHeader,
         rangeResponse.header,
       );
+      httpResponse.contentLength = rangeResponse.contentLength ?? -1;
       httpResponse.statusCode = HttpStatus.partialContent;
       assert(
         HttpRange.isEqual(rangeRequest, rangeResponse),
-        'Invalid range: request: $rangeRequest | response: $rangeResponse ',
+        'Invalid HttpRange: request: $rangeRequest | response: $rangeResponse | StreamResponse.Range: ${streamResponse.range}',
       );
     } else {
-      httpResponse.contentLength = streamResponse.sourceLength ?? -1;
+      httpResponse.contentLength = sourceLength ?? -1;
       httpResponse.statusCode = HttpStatus.ok;
     }
   }
 
-  void close([Object? error]) {
+  void close([final Object? error]) {
     if (_closed) return;
     _closed = true;
-    if (null != error) {
-      CustomHttpClientxx.onLog?.call("Req Error: $error");
-    }
     if (error != null && !_streaming) {
       httpRequest.response.addError(error);
     }

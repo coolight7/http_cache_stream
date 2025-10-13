@@ -1,5 +1,7 @@
+import 'dart:io';
+
 import 'package:http_cache_stream/http_cache_stream.dart';
-import 'package:util_xx/Httpxx.dart';
+import 'package:http_cache_stream/src/cache_stream/cache_downloader/custom_http_client.dart';
 
 ///Cache configuration for a single [HttpCacheStream]. Values set here override the global values set in [GlobalCacheConfig].
 ///
@@ -7,114 +9,156 @@ import 'package:util_xx/Httpxx.dart';
 class StreamCacheConfig implements CacheConfiguration {
   StreamCacheConfig(this._global);
   final GlobalCacheConfig _global;
-  final _local = LocalCacheConfig();
+
+  ///Constructs a [StreamCacheConfig] using the global configuration from [HttpCacheManager].
+  factory StreamCacheConfig.construct(final HttpCacheManager cacheManager) {
+    return StreamCacheConfig(cacheManager.config);
+  }
 
   ///When true, custom request and response headers set in [HttpCacheManager] are used.
   ///If headers are set for this [HttpCacheStream], they are combined with the global headers, overriding any duplicates.
   bool useGlobalHeaders = true;
 
   @override
-  HttpHeaderxx get requestHeaders => _local.requestHeaders;
+  Map<String, String> get requestHeaders => _requestHeaders ??= {};
   @override
-  HttpHeaderxx get responseHeaders => _local.responseHeaders;
+  Map<String, String> get responseHeaders => _responseHeaders ??= {};
+
+  @override
+  set responseHeaders(Map<String, String> value) {
+    _responseHeaders = value;
+  }
+
+  @override
+  set requestHeaders(Map<String, String> value) {
+    _requestHeaders = value;
+  }
 
   @override
   bool get copyCachedResponseHeaders {
-    return _useGlobalCopyCacheHeaders
-        ? _global.copyCachedResponseHeaders
-        : _local.copyCachedResponseHeaders;
+    return _copyCachedResponseHeaders ?? _global.copyCachedResponseHeaders;
   }
 
   @override
   bool get validateOutdatedCache {
-    return _useGlobalValidateOutdatedCache
-        ? _global.validateOutdatedCache
-        : _local.validateOutdatedCache;
+    return _validateOutdatedCache ?? _global.validateOutdatedCache;
+  }
+
+  @override
+  bool get savePartialCache {
+    return _savePartialCache ?? _global.savePartialCache;
+  }
+
+  @override
+  bool get saveMetadata {
+    return _saveMetadata ?? _global.saveMetadata;
   }
 
   @override
   int? get rangeRequestSplitThreshold {
-    return _useGlobalRangeRequestSplitThreshold
-        ? _global.rangeRequestSplitThreshold
-        : _local.rangeRequestSplitThreshold;
+    return switch (_useGlobalRangeRequestSplitThreshold) {
+      true => _global.rangeRequestSplitThreshold,
+      false => _rangeRequestSplitThreshold,
+    };
   }
 
   @override
   int get maxBufferSize {
-    return _useGlobalBufferSize ? _global.maxBufferSize : _local.maxBufferSize;
+    return _maxBufferSize ?? _global.maxBufferSize;
   }
 
   @override
   int get minChunkSize {
-    return _useGlobalMinChunkSize ? _global.minChunkSize : _local.minChunkSize;
-  }
-
-  @override
-  set requestHeaders(HttpHeaderxx requestHeaders) {
-    _local.requestHeaders = requestHeaders;
-  }
-
-  @override
-  set responseHeaders(HttpHeaderxx responseHeaders) {
-    _local.responseHeaders = responseHeaders;
+    return _minChunkSize ?? _global.minChunkSize;
   }
 
   @override
   set copyCachedResponseHeaders(bool value) {
-    _useGlobalCopyCacheHeaders = false;
-    _local.copyCachedResponseHeaders = value;
+    _copyCachedResponseHeaders = value;
+  }
+
+  @override
+  set savePartialCache(bool value) {
+    _savePartialCache = value;
+  }
+
+  @override
+  set saveMetadata(bool value) {
+    _saveMetadata = value;
   }
 
   @override
   set validateOutdatedCache(bool value) {
-    _useGlobalValidateOutdatedCache = false;
-    _local.validateOutdatedCache = value;
+    _validateOutdatedCache = value;
   }
 
   @override
   set rangeRequestSplitThreshold(int? value) {
     _useGlobalRangeRequestSplitThreshold = false;
-    _local.rangeRequestSplitThreshold = value;
+    _rangeRequestSplitThreshold =
+        CacheConfiguration.validateRangeRequestSplitThreshold(value);
   }
 
   @override
   set maxBufferSize(int value) {
-    _useGlobalBufferSize = false;
-    _local.maxBufferSize = value;
+    _maxBufferSize = CacheConfiguration.validateMaxBufferSize(value);
   }
 
   @override
   set minChunkSize(int value) {
-    _useGlobalMinChunkSize = false;
-    _local.minChunkSize = value;
+    _minChunkSize = CacheConfiguration.validateMinChunkSize(value);
   }
 
+  ///Register a callback to be called when this stream's cache is completely downloaded and written to disk.
+  void Function(File cacheFile)? onCacheDone;
+
   ///Returns an immutable map of all custom request headers.
-  HttpHeaderxx combinedRequestHeaders() {
-    return _combineHeaders(_global.requestHeaders, _local.requestHeaders);
+  Map<String, String> combinedRequestHeaders() {
+    return _combineHeaders(
+      _global.requestHeaders,
+      _requestHeaders,
+    );
   }
 
   ///Returns an immutable map of all custom response headers.
-  HttpHeaderxx combinedResponseHeaders() {
-    return _combineHeaders(_global.responseHeaders, _local.responseHeaders);
+  Map<String, String> combinedResponseHeaders() {
+    return _combineHeaders(_global.responseHeaders, _responseHeaders);
   }
 
-  HttpHeaderxx _combineHeaders(
-    HttpHeaderxx global,
-    HttpHeaderxx local,
-  ) {
+  ///Internal callback to be called when the cache is completely downloaded and written to disk.
+  ///To register a callback, use [onCacheDone].
+  void onCacheComplete(HttpCacheStream stream, File cacheFile) {
+    onCacheDone?.call(cacheFile);
+    _global.onCacheDone?.call(stream, cacheFile);
+  }
+
+  Map<String, String> _combineHeaders(
+    final Map<String, String> global,
+    final Map<String, String>? local, {
+    final Map<String, String> defaultHeaders = const {},
+  }) {
     final useGlobal = global.isNotEmpty && useGlobalHeaders;
-    final useLocal = local.isNotEmpty;
-    if (!useGlobal && !useLocal) return Httpxx_c.createHeader();
-    return Httpxx_c.createHeader(data: {
+    final useLocal = local != null && local.isNotEmpty;
+    if (!useGlobal && !useLocal) return defaultHeaders;
+    return Map.unmodifiable({
+      ...defaultHeaders,
       if (useGlobal) ...global,
       if (useLocal) ...local,
     });
   }
 
-  bool _useGlobalCopyCacheHeaders = true;
+  @override
+  CustomHttpClientxx get httpClient => _global.httpClient;
+
+  /// Stream-specific configuration
   bool _useGlobalRangeRequestSplitThreshold = true;
-  bool _useGlobalValidateOutdatedCache = true;
-  bool _useGlobalBufferSize = true;
-  bool _useGlobalMinChunkSize = true;
+  bool? _copyCachedResponseHeaders;
+  bool? _validateOutdatedCache;
+  bool? _savePartialCache;
+  bool? _saveMetadata;
+  int? _maxBufferSize;
+  int? _minChunkSize;
+  int? _rangeRequestSplitThreshold;
+  Map<String, String>? _requestHeaders;
+  Map<String, String>? _responseHeaders;
 }

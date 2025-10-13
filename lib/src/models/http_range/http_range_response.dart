@@ -1,32 +1,41 @@
 import 'dart:io';
 
-import 'package:dio/dio.dart' as libdio;
 import 'http_range.dart';
 
 class HttpRangeResponse extends HttpRange {
   const HttpRangeResponse._(super.start, super.end, {super.sourceLength});
 
-  static HttpRangeResponse? parse(libdio.Headers headers) {
+  static HttpRangeResponse? parseFromHeader(Map<String, List<String>> headers) {
     final contentRangeHeader =
         headers[HttpHeaders.contentRangeHeader]?.firstOrNull;
-    if (contentRangeHeader == null || contentRangeHeader.isEmpty) return null;
-    var (int? start, int? end, int? sourceLength) = HttpRange.parse(
-      contentRangeHeader,
+    final contentLen = int.tryParse(
+      headers[HttpHeaders.contentLengthHeader]?.firstOrNull ?? "",
     );
+    return parse(contentRangeHeader, contentLen);
+  }
+
+  /// Parses the Content-Range header from a response.
+  /// If the header is not present or is invalid, returns null.
+  static HttpRangeResponse? parse(
+    final String? contentRangeHeader,
+    final int? contentLength,
+  ) {
+    if (contentRangeHeader == null || contentRangeHeader.isEmpty) {
+      return null;
+    }
+    var (int? start, int? end, int? sourceLength) =
+        HttpRange.parse(contentRangeHeader);
     if (start == null && end == null && sourceLength == null) {
       return null;
     }
     start ??= 0;
-    final contentLen = int.tryParse(
-      headers[HttpHeaders.contentLengthHeader]?.firstOrNull ?? "",
-    );
     if (sourceLength == null &&
         start == 0 &&
         end == null &&
-        null != contentLen &&
-        contentLen > 0) {
+        contentLength != null &&
+        contentLength > 0) {
       sourceLength =
-          contentLen; // If the source length is unknown, use the content length
+          contentLength; // If the source length is unknown, use the content length
     }
 
     return HttpRangeResponse._(start, end, sourceLength: sourceLength);
@@ -35,9 +44,9 @@ class HttpRangeResponse extends HttpRange {
   /// Creates a [HttpRangeResponse] from an exclusive end range by converting it to inclusive.
   /// For example: if given start=0, end=100 (exclusive), creates a range of 0-99 (inclusive).
   factory HttpRangeResponse.inclusive(
-    int start,
-    int? end, {
-    int? sourceLength,
+    final int start,
+    final int? end, {
+    final int? sourceLength,
   }) {
     return HttpRangeResponse._(
       start,
