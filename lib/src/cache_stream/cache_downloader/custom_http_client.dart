@@ -82,6 +82,7 @@ class CustomHttpClientxx {
     requestHeaders = Httpxx_c.createHeader(data: requestHeaders);
     requestHeaders[HttpHeaders.acceptEncodingHeader] = 'identity';
     if (requestHeaders.containsKey(headerConfigKey_X_PRE_HEAD)) {
+      // dio 自动重定向时，部分请求头不会转发过去
       // 预先处理重定向
       requestHeaders.remove(headerConfigKey_X_PRE_HEAD);
       realUrl = (await handleHttpRedirect(
@@ -123,6 +124,7 @@ class CustomHttpClientxx {
           responseType: libdio.ResponseType.stream,
           followRedirects: true,
           maxRedirects: 5,
+          receiveDataWhenStatusError: true,
         ),
       );
       final code = resp.statusCode;

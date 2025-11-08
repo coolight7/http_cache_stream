@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:http_cache_stream/src/cache_stream/cache_downloader/custom_http_client.dart';
 import 'package:mime/mime.dart';
 import 'package:string_util_xx/string_util_xx.dart';
 import 'package:util_xx/util_xx.dart';
