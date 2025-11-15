@@ -69,7 +69,8 @@ class CustomHttpClientxx {
       ..badCertificateCallback = (X509Certificate cert, String host, int port) {
         return true;
       }
-      ..idleTimeout = const Duration(minutes: 2);
+      ..idleTimeout = const Duration(minutes: 5)
+      ..connectionTimeout = const Duration(seconds: 8);
   }
 
   Future<libdio.Response<libdio.ResponseBody>> getUrl(
