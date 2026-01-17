@@ -29,9 +29,10 @@ abstract interface class CacheConfiguration {
   int? get rangeRequestSplitThreshold;
   set rangeRequestSplitThreshold(int? value);
 
-  ///The maximum amount of data to buffer in memory before writing to disk during a download.
-  ///Once this limit is reached, the cache stream will flush the buffer to disk. However, the download will continue to buffer more data. The download stream will only be paused if it is receiving more data than it can write to disk. As a result, the theoretical maximum memory usage of a cache download is double this value.
-  ///Default value is 25MB.
+  ///The maximum amount of data (in bytes) to buffer in memory.
+  ///If an ongoing cache download is receiving data faster than it can be written to disk, and the buffer exceeds this size, the download will be paused until the buffer is flushed to disk.
+  ///If a response stream is receiving data faster than it can be consumed, and the buffer exceeds this size, then the stream will be cancelled with an exception.
+  ///Default is 25MB.
   int get maxBufferSize;
   set maxBufferSize(int value);
 
@@ -56,6 +57,21 @@ abstract interface class CacheConfiguration {
   /// Default is true.
   bool get saveMetadata;
   set saveMetadata(bool value);
+
+  /// The timeout duration between reads for both requests and responses.
+  /// Note that this applies to paused requests to prevent them from hanging indefinitely.
+  /// If no data is received within this duration, the connection will be closed.
+  /// Default is 30 seconds.
+  Duration get readTimeout;
+  set readTimeout(Duration value);
+
+  ///Whether to save all response headers in the cached response metadata.
+  ///
+  ///When false, only essential headers required for cache responses and validation are saved.
+  ///
+  ///Default is true.
+  bool get saveAllHeaders;
+  set saveAllHeaders(bool value);
 
   static int? validateRangeRequestSplitThreshold(int? value) {
     if (value == null) return null;

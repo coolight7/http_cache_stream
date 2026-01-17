@@ -1,48 +1,98 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:http_cache_stream/http_cache_stream.dart';
-import 'package:http_cache_stream/src/cache_stream/response_streams/combined_cache_stream.dart';
-import 'package:http_cache_stream/src/cache_stream/response_streams/download_stream.dart';
-import 'package:http_cache_stream/src/cache_stream/response_streams/file_stream.dart';
+import 'package:http_cache_stream/src/models/stream_response/combined_cache_stream_response.dart';
 
+import 'cache_download_stream_response.dart';
+import 'file_stream_response.dart';
+import 'range_download_stream_response.dart';
+
+/// Represents a response from the cache manager.
 abstract class StreamResponse {
+  /// The byte range of the response.
   final IntRange range;
-  const StreamResponse(this.range);
-  Stream<List<int>> get stream;
-  ResponseSource get source;
-  int? get sourceLength;
 
+  /// The headers of the source response.
+  final CachedResponseHeaders sourceHeaders;
+  const StreamResponse(this.range, this.sourceHeaders);
+
+  /// The stream of data for this response.
+  Stream<List<int>> get stream;
+
+  /// The source of the response (cache, download, or combined).
+  ResponseSource get source;
+
+  /// The total length of the source content, if known.
+  int? get sourceLength => sourceHeaders.sourceLength;
+
+  /// Creates a [StreamResponse] from a remote download.
   static Future<StreamResponse> fromDownload(
     final Uri url,
     final IntRange range,
     final StreamCacheConfig config,
   ) {
-    return DownloadStreamResponse.construct(url, range, config);
+    return RangeDownloadStreamResponse.construct(url, range, config);
   }
 
+  /// Creates a [StreamResponse] from a cached file.
   factory StreamResponse.fromFile(
     final IntRange range,
-    final File file,
-    final int? sourceLength,
+    final CacheFiles cacheFiles,
+    final CachedResponseHeaders responseHeaders,
   ) {
-    return FileStreamResponse(file, range, sourceLength);
+    return FileStreamResponse(range, cacheFiles, responseHeaders);
   }
 
-  factory StreamResponse.fromCacheStream(
+  factory StreamResponse.fromStream(
     final IntRange range,
-    final File partialCacheFile,
-    Stream<List<int>> dataStream,
+    final CachedResponseHeaders headers,
+    final Stream<List<int>> dataStream,
     final int dataStreamPosition,
-    final int? sourceLength,
+    final StreamCacheConfig streamConfig,
   ) {
-    final effectiveEnd = range.end ?? sourceLength;
+    return CacheDownloadStreamResponse(
+      range,
+      headers,
+      dataStream: dataStream,
+      dataStreamPosition: dataStreamPosition,
+      streamConfig: streamConfig,
+    );
+  }
+
+  factory StreamResponse.fromFileAndStream(
+    final IntRange range,
+    final CachedResponseHeaders headers,
+    final CacheFiles cacheFiles,
+    final Stream<List<int>> dataStream,
+    final int dataStreamPosition,
+    final StreamCacheConfig streamConfig,
+  ) {
+    final effectiveEnd = range.end ?? headers.sourceLength;
     if (effectiveEnd != null && dataStreamPosition >= effectiveEnd) {
       //We can fully serve the request from the file
-      return StreamResponse.fromFile(range, partialCacheFile, sourceLength);
+      return StreamResponse.fromFile(
+        range,
+        cacheFiles,
+        headers,
+      );
+    } else if (range.start >= dataStreamPosition) {
+      //We can fully serve the request from the cache stream
+      return StreamResponse.fromStream(
+        range,
+        headers,
+        dataStream,
+        dataStreamPosition,
+        streamConfig,
+      );
     } else {
-      return CombinedCacheStreamResponse.construct(range, partialCacheFile,
-          dataStream, dataStreamPosition, sourceLength);
+      return CombinedCacheStreamResponse.construct(
+        range,
+        headers,
+        cacheFiles,
+        dataStream,
+        dataStreamPosition,
+        streamConfig,
+      );
     }
   }
 
@@ -66,7 +116,11 @@ abstract class StreamResponse {
     return contentLength != null && contentLength! < sourceLength!;
   }
 
-  void close();
+  bool get isEmpty {
+    return contentLength == 0;
+  }
+
+  void cancel();
 
   @override
   String toString() {
@@ -75,15 +129,20 @@ abstract class StreamResponse {
 }
 
 enum ResponseSource {
-  ///A stream response that is served from an independent download stream.
-  ///This is separate download stream from the active cache download stream, and is used to fulfill range requests starting beyond the active cache position.
-  download,
-
-  ///A stream response that is served from a partial cache file and the active cache download stream.
-  ///Data from the download stream is buffered until a listener is added. The stream must be read to completion or cancelled to release buffered data. If you no longer need the stream, you must manually call [cancel] to avoid memory leaks.
-  ///This can be interperted as a combination of [ResponseSource.download] and [ResponseSource.cacheFile]. The file represents the partial cache file, and the download stream represents the active cache download.
-  cacheStream,
+  ///A stream response used to fulfill range requests that exceed [rangeRequestSplitThreshold].
+  ///This is an independent download stream from the source URL.
+  rangeDownload,
 
   ///A stream response that is served exclusively from cached data saved to a file.
   cacheFile,
+
+  ///A stream response that is served exclusively from the cache download stream.
+  ///
+  ///Data from the cache download stream is buffered until a listener is added. The stream must be read to completion or cancelled to release buffered data. If you no longer need the stream, you must manually call [cancel] to avoid memory leaks.
+  cacheDownload,
+
+  ///A stream response that combines [cacheFile] and [cacheDownload] sources. When a listener is added, data is streamed from the cache file first, and once the file stream is done, it switches to the cache download stream.
+  ///
+  ///Data from the cache download stream is buffered until a listener is added. The stream must be read to completion or cancelled to release buffered data. If you no longer need the stream, you must manually call [cancel] to avoid memory leaks.
+  combined,
 }

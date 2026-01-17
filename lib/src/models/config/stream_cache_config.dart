@@ -3,20 +3,24 @@ import 'dart:io';
 import 'package:http/http.dart';
 import 'package:http_cache_stream/http_cache_stream.dart';
 
-///Cache configuration for a single [HttpCacheStream]. Values set here override the global values set in [GlobalCacheConfig].
+/// Cache configuration for a single [HttpCacheStream].
 ///
-///When [useGlobalHeaders] is true, headers will be combined with the global headers, overriding any duplicates.
+/// Values set here override the global values set in [GlobalCacheConfig].
+/// When [useGlobalHeaders] is true, headers will be combined with the
+/// global headers, overriding any duplicates.
 class StreamCacheConfig implements CacheConfiguration {
   StreamCacheConfig(this._global);
   final GlobalCacheConfig _global;
 
-  ///Constructs a [StreamCacheConfig] using the global configuration from [HttpCacheManager].
+  /// Constructs a [StreamCacheConfig] using the global configuration from [HttpCacheManager].
   factory StreamCacheConfig.construct(final HttpCacheManager cacheManager) {
     return StreamCacheConfig(cacheManager.config);
   }
 
-  ///When true, custom request and response headers set in [HttpCacheManager] are used.
-  ///If headers are set for this [HttpCacheStream], they are combined with the global headers, overriding any duplicates.
+  /// When true, custom request and response headers set in [HttpCacheManager] are used.
+  ///
+  /// If headers are set for this [HttpCacheStream], they are combined with
+  /// the global headers, overriding any duplicates.
   bool useGlobalHeaders = true;
 
   @override
@@ -73,6 +77,16 @@ class StreamCacheConfig implements CacheConfiguration {
   }
 
   @override
+  Duration get readTimeout {
+    return _readTimeout ?? _global.readTimeout;
+  }
+
+  @override
+  bool get saveAllHeaders {
+    return _saveAllHeaders ?? _global.saveAllHeaders;
+  }
+
+  @override
   set copyCachedResponseHeaders(bool value) {
     _copyCachedResponseHeaders = value;
   }
@@ -109,10 +123,21 @@ class StreamCacheConfig implements CacheConfiguration {
     _minChunkSize = CacheConfiguration.validateMinChunkSize(value);
   }
 
-  ///Register a callback to be called when this stream's cache is completely downloaded and written to disk.
+  @override
+  set readTimeout(Duration value) {
+    _readTimeout = value;
+  }
+
+  @override
+  set saveAllHeaders(bool value) {
+    _saveAllHeaders = value;
+  }
+
+  /// Register a callback to be called when this stream's cache is completely
+  /// downloaded and written to disk.
   void Function(File cacheFile)? onCacheDone;
 
-  ///Returns an immutable map of all custom request headers.
+  /// Returns an immutable map of all custom request headers.
   Map<String, String> combinedRequestHeaders() {
     return _combineHeaders(
       _global.requestHeaders,
@@ -123,13 +148,15 @@ class StreamCacheConfig implements CacheConfiguration {
     );
   }
 
-  ///Returns an immutable map of all custom response headers.
+  /// Returns an immutable map of all custom response headers.
   Map<String, String> combinedResponseHeaders() {
     return _combineHeaders(_global.responseHeaders, _responseHeaders);
   }
 
-  ///Internal callback to be called when the cache is completely downloaded and written to disk.
-  ///To register a callback, use [onCacheDone].
+  /// Internal callback to be called when the cache is completely downloaded
+  /// and written to disk.
+  ///
+  /// To register a callback, use [onCacheDone].
   void onCacheComplete(HttpCacheStream stream, File cacheFile) {
     onCacheDone?.call(cacheFile);
     _global.onCacheDone?.call(stream, cacheFile);
@@ -155,10 +182,12 @@ class StreamCacheConfig implements CacheConfiguration {
 
   /// Stream-specific configuration
   bool _useGlobalRangeRequestSplitThreshold = true;
+  Duration? _readTimeout;
   bool? _copyCachedResponseHeaders;
   bool? _validateOutdatedCache;
   bool? _savePartialCache;
   bool? _saveMetadata;
+  bool? _saveAllHeaders;
   int? _maxBufferSize;
   int? _minChunkSize;
   int? _rangeRequestSplitThreshold;
