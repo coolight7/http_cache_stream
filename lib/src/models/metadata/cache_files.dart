@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http_cache_stream/src/etc/const.dart';
+import 'package:http_cache_stream/src/etc/extensions/file_extensions.dart';
 import 'package:path/path.dart' as p;
 
 class CacheFiles {
@@ -24,12 +25,20 @@ class CacheFiles {
   List<String> get paths => [complete.path, partial.path, metadata.path];
   Directory get directory => complete.parent;
 
+  ///Returns the active cache file. If the complete cache file exists, it is returned. Otherwise, the partial cache file is returned.
+  ///Does not guarantee that the returned file exists.
+  File activeCacheFile() => complete.existsSync() ? complete : partial;
+
+  ///Returns the length, in bytes, of the active cache file, or null if neither cache file exists.
+  int? cacheFileSize() =>
+      complete.lengthSyncOrNull() ?? partial.lengthSyncOrNull();
+
   ///Deletes the cache file and metadata file. If [partialOnly] is true, only partially cached files will be deleted.
   ///Returns true if any files were deleted.
   Future<bool> delete({final bool partialOnly = false}) async {
     final cacheFiles = [complete, partial, metadata];
     if (partialOnly) {
-      if (complete.existsSync()) {
+      if (await complete.exists()) {
         return false;
       } else {
         cacheFiles.remove(complete);
@@ -37,9 +46,8 @@ class CacheFiles {
     }
     bool deleted = false;
     for (final file in cacheFiles) {
-      if (file.existsSync()) {
+      if (await file.exists()) {
         deleted = true;
-        if (kDebugMode) print('CacheFiles: Deleting cache file: ${file.path}');
         await file.delete();
       }
     }

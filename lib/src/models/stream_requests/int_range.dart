@@ -1,43 +1,41 @@
 import 'package:http_cache_stream/src/models/http_range/http_range_request.dart';
 
-///A class that represents a range of exclusive integers, used for stream ranges.
+///A class that represents a range of exclusive integers
 class IntRange {
   final int start;
   final int? end;
-  const IntRange([this.start = 0, this.end])
-      : assert(start >= 0 && (end == null || end >= start));
+  const IntRange([this.start = 0, this.end]) : upperBound = end ?? start;
+  final int upperBound;
 
   static IntRange full() => const IntRange(0);
 
   ///Constructs an IntRange with validation.
-  static IntRange construct(int? start, int? end, int? max) {
-    if ((start ??= 0) == 0 && end == null) {
+  static IntRange validate(int? start, int? end, int? max) {
+    start = start == null ? 0 : RangeError.checkNotNegative(start, 'start');
+    if (start == 0 && end == null) {
       return IntRange.full();
     }
-    if (end != null) {
-      start = RangeError.checkValueInInterval(start, 0, end);
-      end = RangeError.checkValueInInterval(end, start, max ?? end);
-    } else if (max != null) {
-      start = RangeError.checkValueInInterval(start, 0, max);
-    } else {
-      start = RangeError.checkNotNegative(start);
+    if (end != null && start > end) {
+      throw RangeError.range(end, start, null, 'end');
+    }
+    if (max != null) {
+      if (start > max) {
+        throw RangeError.range(start, 0, max, 'start');
+      }
+      if (end != null && end > max) {
+        throw RangeError.range(end, start, max, 'end');
+      }
     }
     return IntRange(start, end);
   }
 
   bool exceeds(int value) {
-    return greatest > value;
+    return upperBound > value;
   }
-
-  int get greatest => end ?? start;
 
   int? get range {
     if (end == null) return null;
     return end! - start;
-  }
-
-  IntRange copyWith({int? start, int? end}) {
-    return IntRange(start ?? this.start, end ?? this.end);
   }
 
   bool get isFull => start == 0 && end == null;

@@ -1,3 +1,14 @@
+## 0.0.4
+* Add `saveAllHeaders` to cache configuration. If false, only essential response headers are saved (defaults to true).
+
+* Add `readTimeout` to cache configuration. Requests and responses that do not receive data within this duration are closed. Defaults to 30 seconds.
+
+* Enhanced 'maxBufferSize' logic to close paused/unused response streams that exceed the specified buffer size.
+
+* Breaking: requests exceeding `rangeRequestSplitThreshold` are automatically fulfilled without starting the cache download
+
+* Improved response times and performance
+
 ## 0.0.3
 
 * Add acceptRangesHeader to partial content response headers

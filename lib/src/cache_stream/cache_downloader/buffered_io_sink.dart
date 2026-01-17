@@ -1,60 +1,62 @@
-import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-/// By default, IOSink retains all data in memory until the sink is closed or flushed. This can lead to high memory usage if large amounts of data are written to the sink without flushing.
-/// To avoid this, we use a buffered IOSink that flushes data in chunks, while still allowing data to be buffered while waiting for the sink to flush.
+/// An IO sink that supports adding data while flushing to disk asynchronously.
 class BufferedIOSink {
   final File file;
-  final int start;
-  BufferedIOSink(this.file, {this.start = 0})
-      : _sink = file.openWrite(
+  BufferedIOSink(this.file, final int start)
+      : _raf = file.openSync(
           mode: start > 0 ? FileMode.append : FileMode.write,
         );
-  final IOSink _sink;
 
+  final RandomAccessFile _raf;
   final _buffer = BytesBuilder(copy: false);
+  int _flushedBytes = 0;
+  bool _isClosed = false;
+  Future<void>? _flushFuture;
 
   void add(List<int> data) {
-    assert(!_isClosed, 'BufferedIOSink is closed');
+    if (_isClosed) {
+      throw StateError('Cannot add data to a closed sink.');
+    }
     _buffer.add(data);
   }
 
-  Future<void> close({final bool flushBuffer = true}) async {
-    if (flushBuffer) {
-      while (_flushFuture != null || _buffer.isNotEmpty) {
-        await flush();
+  /// Flushes all buffered data to disk. If new data is added during flushing, it will continue flushing until the buffer is empty.
+  /// If an error occurs during flushing, it will be propagated to the caller, and all future flush attempts will rethrow the same error.
+  Future<void> flush() {
+    if (_buffer.isEmpty) return _flushFuture ?? Future.value();
+    return _flushFuture ??= () async {
+      while (_buffer.isNotEmpty) {
+        final bytes = _buffer.takeBytes();
+        await _raf.writeFrom(bytes, 0, bytes.length);
+        _flushedBytes += bytes.length;
       }
-    } else {
-      _buffer.clear(); //Clear the buffer if we are not flushing
-    }
-    return _sink.close().whenComplete(() {
-      _isClosed = true; //Set the sink to closed
-      _buffer.clear(); //Clear the buffer just in case
-    });
+      _flushFuture = null;
+    }();
   }
 
-  Future<void> flush() async {
-    while (_flushFuture != null) {
-      await _flushFuture!; //Allow any previous flush to complete
-    }
-    if (_buffer.isEmpty) {
-      return; //Nothing to flush
-    }
+  Future<void> close({final bool flushBuffer = true}) async {
+    if (_isClosed) return;
+    _isClosed = true;
+
     try {
-      final bufferedData =
-          _buffer.takeBytes(); //Take the buffered data, and clear the buffer
-      _sink.add(bufferedData); //Add the buffer to the sink
-      await (_flushFuture =
-          _sink.flush()); //Set the flush future and wait for it to complete
+      if (flushBuffer) {
+        try {
+          await flush();
+        } finally {
+          await _raf.flush();
+        }
+      }
     } finally {
-      _flushFuture = null; //Reset the flush future
+      _buffer.clear();
+      await _raf.close();
     }
   }
 
   int get bufferSize => _buffer.length;
+  int get flushedBytes => _flushedBytes;
+  bool get flushed => _buffer.isEmpty && !isFlushing;
   bool get isFlushing => _flushFuture != null;
   bool get isClosed => _isClosed;
-  bool _isClosed = false;
-  Future? _flushFuture;
 }

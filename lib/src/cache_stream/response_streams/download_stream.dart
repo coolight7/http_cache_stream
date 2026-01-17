@@ -1,81 +1,42 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart';
 import 'package:http_cache_stream/http_cache_stream.dart';
-import 'package:http_cache_stream/src/etc/exceptions.dart';
+import 'package:http_cache_stream/src/models/exceptions/invalid_cache_exceptions.dart';
 import 'package:http_cache_stream/src/models/http_range/http_range_response.dart';
 
-class DownloadStreamResponse extends StreamResponse {
-  final DownloadStream _downloadStream;
-  const DownloadStreamResponse._(super.range, this._downloadStream);
-
-  static Future<DownloadStreamResponse> construct(final Uri url,
-      final IntRange range, final StreamCacheConfig config) async {
-    final downloadStream = await DownloadStream.open(
-      url,
-      range,
-      config.httpClient,
-      config.combinedRequestHeaders(),
-    );
-    return DownloadStreamResponse._(range, downloadStream);
-  }
-
-  @override
-  Stream<List<int>> get stream => _downloadStream;
-
-  @override
-  ResponseSource get source => ResponseSource.download;
-
-  @override
-  int? get sourceLength => _downloadStream.sourceLength;
-
-  @override
-  void close() => _downloadStream.cancel();
-}
+import '../../etc/extensions/http_extensions.dart';
+import '../../models/exceptions/http_exceptions.dart';
 
 class DownloadStream extends Stream<List<int>> {
   final StreamedResponse _streamedResponse;
-  final Duration autoCancelDelay;
-  DownloadStream(this._streamedResponse,
-      {this.autoCancelDelay = const Duration(seconds: 30)}) {
-    _autoCancelTimer = Timer(autoCancelDelay, () {
-      assert(
-        _listened,
-        'HttpResponseStream was not listened to before auto-canceling.',
-      );
-      cancel();
-    });
-  }
+  DownloadStream(this._streamedResponse);
 
   static Future<DownloadStream> open(
     final Uri url,
     final IntRange range,
-    final Client client,
-    final Map<String, String> requestHeaders,
+    final StreamCacheConfig config,
   ) async {
-    assert(requestHeaders.containsKey(HttpHeaders.acceptEncodingHeader),
-        'Accept-Encoding header should be set');
     final request = Request('GET', url);
-    request.headers.addAll(requestHeaders);
+    request.headers.addAll(config.combinedRequestHeaders());
     final rangeRequest = range.isFull ? null : range.rangeRequest;
     if (rangeRequest != null) {
       request.headers[HttpHeaders.rangeHeader] = rangeRequest.header;
     }
-    DownloadStream? downloadStream;
+
+    final streamedResponse =
+        await config.httpClient.sendWithTimeout(request, config.readTimeout);
     try {
-      downloadStream = DownloadStream(await client.send(request));
       if (rangeRequest == null) {
-        HttpStatusCodeException.validate(
-            url, HttpStatus.ok, downloadStream.statusCode);
+        HttpStatusCodeException.validateCompleteResponse(url, streamedResponse);
       } else {
         HttpRangeException.validate(
-            url, rangeRequest, downloadStream.responseRange);
+            url, rangeRequest, HttpRangeResponse.parse(streamedResponse));
       }
-      return downloadStream;
+      return DownloadStream(streamedResponse);
     } catch (e) {
-      downloadStream?.cancel();
+      streamedResponse.close();
       rethrow;
     }
   }
@@ -88,7 +49,6 @@ class DownloadStream extends Stream<List<int>> {
     bool? cancelOnError,
   }) {
     _listened = true;
-    _autoCancelTimer.cancel();
     return _streamedResponse.stream.listen(
       onData,
       onError: onError,
@@ -97,28 +57,16 @@ class DownloadStream extends Stream<List<int>> {
     );
   }
 
-  ///To cancel the stream, we need to call cancel on the StreamedResponse.
-  void cancel() async {
+  void cancel() {
     if (_listened) return;
-    try {
-      final listener = listen(null, onError: (_) {}, cancelOnError: true);
-      await listener.cancel();
-    } catch (e) {
-      if (kDebugMode) print('Error cancelling stream: $e');
-    }
+    _streamedResponse.close();
   }
 
   bool _listened = false;
-  bool get hasListener => _listened;
-  late final Timer _autoCancelTimer;
   BaseResponse get baseResponse => _streamedResponse;
 
-  HttpRangeResponse? get responseRange {
-    return HttpRangeResponse.parse(
-      baseResponse.headers[HttpHeaders.contentRangeHeader],
-      baseResponse.contentLength,
-    );
-  }
+  HttpRangeResponse? get responseRange =>
+      HttpRangeResponse.parse(_streamedResponse);
 
   int? get sourceLength {
     if (baseResponse.headers.containsKey(HttpHeaders.contentRangeHeader)) {
@@ -127,7 +75,7 @@ class DownloadStream extends Stream<List<int>> {
     return baseResponse.contentLength;
   }
 
-  CachedResponseHeaders get cachedResponseHeaders {
+  CachedResponseHeaders get responseHeaders {
     return CachedResponseHeaders.fromBaseResponse(baseResponse);
   }
 

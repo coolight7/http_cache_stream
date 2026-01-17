@@ -1,8 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
-import 'package:http_cache_stream/http_cache_stream.dart';
-import 'package:http_cache_stream/src/cache_manager/http_request_handler.dart';
+import '../request_handler/request_handler.dart';
 
 class LocalCacheServer {
   final HttpServer _httpServer;
@@ -20,22 +18,24 @@ class LocalCacheServer {
   }
 
   void start(
-      final HttpCacheStream? Function(HttpRequest request) getCacheStream) {
+      final Future<void> Function(RequestHandler handler) processRequest) {
     _httpServer.listen(
-      (request) {
-        final httpCacheStream =
-            request.method == 'GET' ? getCacheStream(request) : null;
-        if (httpCacheStream != null) {
-          final requestHandler = RequestHandler(request);
-          requestHandler.stream(httpCacheStream);
-        } else {
-          request.response.statusCode = HttpStatus.clientClosedRequest;
-          request.response.close().ignore();
+      (request) async {
+        final requestHandler = RequestHandler(request);
+        try {
+          if (request.method != 'GET') {
+            requestHandler.close(HttpStatus.methodNotAllowed);
+          } else {
+            await processRequest(requestHandler);
+          }
+        } catch (_) {
+          requestHandler.close(HttpStatus.internalServerError);
+        } finally {
+          assert(requestHandler.isClosed,
+              'RequestHandler should be closed after processing the request');
         }
       },
-      onError: (Object e, StackTrace st) {
-        if (kDebugMode) print('HttpCacheStream Proxy server onError: $e');
-      },
+      onError: (_) {},
       cancelOnError: false,
     );
   }

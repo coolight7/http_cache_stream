@@ -4,9 +4,15 @@ import 'package:http_cache_stream/src/cache_server/local_cache_server.dart';
 
 import '../../http_cache_stream.dart';
 
+/// A server that redirects requests to a source and automatically creates
+/// [HttpCacheStream] instances.
 class HttpCacheServer {
+  /// The base source URI for this server.
   final Uri source;
+
   final LocalCacheServer _localCacheServer;
+
+  /// The delay before a stream is disposed after all requests are completed.
   final Duration autoDisposeDelay;
 
   /// The configuration for each generated stream.
@@ -18,7 +24,8 @@ class HttpCacheServer {
     _localCacheServer.start((request) {
       final sourceUrl = getSourceUrl(request.uri);
       final cacheStream = _createCacheStream(sourceUrl, config: config);
-      request.response.done.catchError((_) {}).whenComplete(() {
+
+      return request.stream(cacheStream).whenComplete(() {
         if (isDisposed) {
           cacheStream
               .dispose()
@@ -31,10 +38,10 @@ class HttpCacheServer {
                   .ignore()); // Decrease the stream's retainCount for autoDispose
         }
       });
-      return cacheStream;
     });
   }
 
+  /// Returns the cache URL for a given source URL.
   Uri getCacheUrl(Uri sourceUrl) {
     if (sourceUrl.scheme != source.scheme ||
         sourceUrl.host != source.host ||
@@ -44,6 +51,7 @@ class HttpCacheServer {
     return _localCacheServer.getCacheUrl(sourceUrl);
   }
 
+  /// Returns the source URL for a given cache URL.
   Uri getSourceUrl(Uri cacheUrl) {
     return cacheUrl.replace(
       scheme: source.scheme,
@@ -52,9 +60,12 @@ class HttpCacheServer {
     );
   }
 
-  /// The URI of the local cache server. Requests to this URI will be redirected to the source URL.
+  /// The URI of the local cache server.
+  ///
+  /// Requests to this URI will be redirected to the source URL.
   Uri get uri => _localCacheServer.serverUri;
 
+  /// Disposes this [HttpCacheServer] and closes the local server.
   Future<void> dispose() {
     if (_completer.isCompleted) {
       return _completer.future;
@@ -65,6 +76,10 @@ class HttpCacheServer {
   }
 
   final _completer = Completer<void>();
+
+  /// Whether the server has been disposed.
   bool get isDisposed => _completer.isCompleted;
+
+  /// A future that completes when the server is disposed.
   Future<void> get future => _completer.future;
 }

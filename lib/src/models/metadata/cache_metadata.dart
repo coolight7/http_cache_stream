@@ -4,23 +4,26 @@ import 'dart:io';
 import 'package:http_cache_stream/src/models/metadata/cache_files.dart';
 import 'package:http_cache_stream/src/models/metadata/cached_response_headers.dart';
 
+/// Metadata for a cached file.
 class CacheMetadata {
+  /// The files associated with the cache.
   final CacheFiles cacheFiles;
+
+  /// The source URL of the content.
   final Uri sourceUrl;
+
+  /// The cached response headers, if any.
   final CachedResponseHeaders? headers;
   const CacheMetadata._(this.cacheFiles, this.sourceUrl, {this.headers});
 
-  ///Constructs [CacheMetadata] from [CacheFiles] and sourceUrl.
+  /// Constructs [CacheMetadata] from [CacheFiles] and sourceUrl.
   factory CacheMetadata.construct(
       final CacheFiles cacheFiles, final Uri sourceUrl) {
-    CachedResponseHeaders? headers;
-    if (cacheFiles.metadata.statSync().size > 0) {
-      final json = jsonDecode(cacheFiles.metadata.readAsStringSync())
-          as Map<String, dynamic>;
-      headers = CachedResponseHeaders.fromJson(json['headers']);
-    }
-    headers ??= CachedResponseHeaders.fromFile(cacheFiles.complete);
-    return CacheMetadata._(cacheFiles, sourceUrl, headers: headers);
+    return CacheMetadata._(
+      cacheFiles,
+      sourceUrl,
+      headers: CachedResponseHeaders.fromCacheFiles(cacheFiles),
+    );
   }
 
   ///Attempts to load the metadata file for the given [file]. Returns null if the metadata file does not exist.
@@ -45,57 +48,32 @@ class CacheMetadata {
   }
 
   ///Returns the cache download progress as a percentage, rounded to 2 decimal places. Returns null if the source length is unknown. Returns 1.0 only if the cache file exists.
-  ///If cache is incomplete and download cannot be resumed, resets the partial cache and returns 0.0.
   ///The progress reported here may be inaccurate if a download is ongoing. Use [progress] on [HttpCacheStream] to get the most accurate progress.
-  ///On the other hand, if a download is not ongoing, this method is the most accurate way to get the progress.
   double? cacheProgress() {
-    try {
-      if (isComplete) {
-        return 1.0;
-      }
-      final sourceLength = this.sourceLength;
-      final hasSourceLength = sourceLength != null && sourceLength > 0;
+    final sourceLength = this.sourceLength;
+    if (sourceLength == null) return null;
 
-      final partialCacheSize = partialCacheFile.statSync().size;
-      if (partialCacheSize <= 0) {
-        return hasSourceLength ? 0.0 : null;
-      } else if (partialCacheSize == sourceLength) {
-        partialCacheFile.renameSync(
-          cacheFile.path,
-        ); //Rename the partial cache to the complete cache
-        return 1.0;
-      } else if (!hasSourceLength ||
-          partialCacheSize > sourceLength ||
-          headers?.canResumeDownload() != true) {
-        partialCacheFile
-            .deleteSync(); //Reset the cache, since the download cannot be resumed
-        return 0.0;
-      } else {
-        return ((partialCacheSize / sourceLength) * 100).floor() /
-            100; //Round to 2 decimal places
-      }
-    } catch (e) {
-      assert(false, 'CacheMetadata: cacheProgress: error $e');
-      return null;
+    if (isComplete) return 1.0;
+
+    final partialCacheSize = partialCacheFile.statSync().size;
+    if (partialCacheSize <= 0) {
+      return 0.0;
+    } else if (partialCacheSize == sourceLength) {
+      partialCacheFile.renameSync(
+          cacheFile.path); //Rename the partial cache to the complete cache
+      return 1.0;
+    } else if (partialCacheSize > sourceLength) {
+      partialCacheFile
+          .deleteSync(); //Reset the cache if the partial cache is larger than the source
+      return 0.0;
+    } else {
+      return ((partialCacheSize / sourceLength) * 100).floor() /
+          100; //Round to 2 decimal places
     }
   }
 
   ///Returns true if the cache is complete. Returns false if the cache is incomplete or does not exist.
-  bool get isComplete {
-    final completeCacheSize = cacheFile.statSync().size;
-    if (completeCacheSize > 0) {
-      assert(
-        sourceLength == completeCacheSize,
-        'Complete cache size ($completeCacheSize) does not match source length ($sourceLength)',
-      );
-      return true;
-    }
-    return false;
-  }
-
-  Future<void> save() {
-    return metaDataFile.writeAsString(jsonEncode(toJson()));
-  }
+  bool get isComplete => headers != null && cacheFile.existsSync();
 
   int? get sourceLength => headers?.sourceLength;
   File get metaDataFile => cacheFiles.metadata;
@@ -109,15 +87,11 @@ class CacheMetadata {
     };
   }
 
-  CacheMetadata copyWith({
-    CacheFiles? cacheFiles,
-    Uri? sourceUrl,
-    CachedResponseHeaders? headers,
-  }) {
+  CacheMetadata setHeaders(CachedResponseHeaders? headers) {
     return CacheMetadata._(
-      cacheFiles ?? this.cacheFiles,
-      sourceUrl ?? this.sourceUrl,
-      headers: headers ?? this.headers,
+      cacheFiles, //immutable
+      sourceUrl, //immutable
+      headers: headers,
     );
   }
 

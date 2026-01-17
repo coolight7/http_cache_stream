@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:http_cache_stream/src/models/http_range/http_range.dart';
 
-import '../models/http_range/http_range_request.dart';
-import '../models/http_range/http_range_response.dart';
+import '../http_range/http_range_request.dart';
+import '../http_range/http_range_response.dart';
 
 class InvalidCacheException {
   final Uri uri;
@@ -13,15 +13,16 @@ class InvalidCacheException {
   String toString() => 'InvalidCacheException: $message';
 }
 
-class CacheDeletedException extends InvalidCacheException {
-  CacheDeletedException(Uri uri) : super(uri, 'Cache deleted');
+class CacheResetException extends InvalidCacheException {
+  CacheResetException(Uri uri) : super(uri, 'Cache reset by user request');
 }
 
 class CacheSourceChangedException extends InvalidCacheException {
   CacheSourceChangedException(Uri uri) : super(uri, 'Cache source changed');
 }
 
-class HttpRangeException extends InvalidCacheException {
+class HttpRangeException extends InvalidCacheException
+    implements HttpException {
   HttpRangeException(
     Uri uri,
     HttpRangeRequest request,
@@ -54,22 +55,4 @@ class CacheStreamDisposedException extends StateError {
   final Uri uri;
   CacheStreamDisposedException(this.uri)
       : super('HttpCacheStream disposed | $uri');
-}
-
-class HttpStatusCodeException extends HttpException {
-  HttpStatusCodeException(Uri url, int expected, int result)
-      : super(
-          'Invalid HTTP status code | Expected: $expected | Result: $result',
-          uri: url,
-        );
-
-  static void validate(
-    final Uri url,
-    final int expected,
-    final int result,
-  ) {
-    if (result != expected) {
-      throw HttpStatusCodeException(url, expected, result);
-    }
-  }
 }
