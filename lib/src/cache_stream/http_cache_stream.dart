@@ -84,7 +84,6 @@ class HttpCacheStream {
 
     final streamRequest = StreamRequest.construct(range);
     final downloader = _cacheDownloader;
-    assert(downloader != null, 'Downloader should not be null by this point');
     if (downloader == null || !downloader.processRequest(streamRequest)) {
       _queuedRequests.add(streamRequest); //Add request to queue
     }
@@ -311,11 +310,6 @@ class HttpCacheStream {
   }
 
   void _updateProgressStream(final double? progress) {
-    assert(progress == null || progress.clamp(0, 1) == progress,
-        'HttpCacheStream: _updateProgressStream: invalid progress $progress');
-    assert(progress != 1.0 || cacheFile.existsSync(),
-        'HttpCacheStream: _updateProgressStream: progress is 1.0 but cache file does not exist');
-
     if (progress != _lastProgress) {
       _lastProgress = progress;
       if (!_progressController.isClosed) {

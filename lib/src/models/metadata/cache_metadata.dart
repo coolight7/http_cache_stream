@@ -73,17 +73,7 @@ class CacheMetadata {
   }
 
   ///Returns true if the cache is complete. Returns false if the cache is incomplete or does not exist.
-  bool get isComplete {
-    final completeCacheSize = cacheFile.statSync().size;
-    if (completeCacheSize > 0) {
-      assert(
-        sourceLength == completeCacheSize,
-        'Complete cache size ($completeCacheSize) does not match source length ($sourceLength)',
-      );
-      return true;
-    }
-    return false;
-  }
+  bool get isComplete => headers != null && cacheFile.existsSync();
 
   int? get sourceLength => headers?.sourceLength;
   File get metaDataFile => cacheFiles.metadata;
