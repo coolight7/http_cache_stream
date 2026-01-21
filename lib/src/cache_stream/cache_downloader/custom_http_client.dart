@@ -21,9 +21,8 @@ class CustomHttpClientxx {
   static final _interceptor = libdio.InterceptorsWrapper(
     onRequest: (options, handler) {
       // 添加默认ua
-      if (false == options.headers.containsKey(HttpHeaders.userAgentHeader)) {
-        options.headers[HttpHeaders.userAgentHeader] = defExtendsUserAgentStr;
-      }
+      options.headers[HttpHeaders.userAgentHeader] ??= defExtendsUserAgentStr;
+      options.headers["skip_zrok_interstitial"] ??= "1";
       return handler.next(options); //continue
     },
     onError: (e, handler) {
