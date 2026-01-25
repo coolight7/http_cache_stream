@@ -68,9 +68,9 @@ class RequestHandler {
     }
   }
 
-  void close([int? statusCode, Object? error]) {
+  void close([int? statusCode, Object? error, Object? stack]) {
     if (null != error) {
-      CustomHttpClientxx.onLog?.call('Req Error: $error');
+      CustomHttpClientxx.onLog?.call('Req Error: $error', stack);
     }
     final responseHandler = _responseHandler;
     if (responseHandler != null) {

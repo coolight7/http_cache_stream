@@ -40,7 +40,7 @@ class ResponseHandler {
 
       _wroteHeaders = true;
       return streamResponse;
-    } catch (e) {
+    } catch (e, stack) {
       streamResponse?.cancel();
       if (!isClosed) {
         if (e is RangeError || e is HttpRangeException) {
@@ -51,9 +51,9 @@ class ResponseHandler {
             _request.response.headers
                 .set(HttpHeaders.contentRangeHeader, 'bytes */$sourceLength');
           }
-          close(HttpStatus.requestedRangeNotSatisfiable, e);
+          close(HttpStatus.requestedRangeNotSatisfiable, e, stack);
         } else {
-          close(HttpStatus.internalServerError, e);
+          close(HttpStatus.internalServerError, e, stack);
         }
       }
       rethrow;
@@ -122,11 +122,11 @@ class ResponseHandler {
   }
 
   /// Closes the response with an optional [statusCode].
-  void close([int? statusCode, Object? error]) {
+  void close([int? statusCode, Object? error, Object? stack]) {
     if (_closed) return;
     _closed = true;
     if (null != error) {
-      CustomHttpClientxx.onLog?.call('Req Error: $error');
+      CustomHttpClientxx.onLog?.call('Req Error: $error', stack);
     }
     if (!_wroteHeaders && statusCode != null) {
       _request.response.statusCode = statusCode;

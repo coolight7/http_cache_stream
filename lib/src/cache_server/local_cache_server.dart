@@ -37,8 +37,8 @@ class LocalCacheServer {
               'RequestHandler should be closed after processing the request');
         }
       },
-      onError: (e) {
-        CustomHttpClientxx.onLog?.call('server onError: $e');
+      onError: (e, stack) {
+        CustomHttpClientxx.onLog?.call('server onError: $e', stack);
       },
       cancelOnError: false,
     );

@@ -18,7 +18,7 @@ class CustomHttpClientxx {
 
   static libdio.BaseOptions? options;
   static String defExtendsUserAgentStr = 'Musicxx/77';
-  static void Function(Object e)? onLog;
+  static void Function(Object e, Object? stack)? onLog;
   static final _interceptor = libdio.InterceptorsWrapper(
     onRequest: (options, handler) {
       // 添加默认ua
@@ -37,7 +37,7 @@ class CustomHttpClientxx {
               e.toString(),
               e.requestOptions.headers.toString(),
               e.requestOptions.path,
-            ]);
+            ], e.stackTrace);
         }
       }
       final resp = e.response;
@@ -180,8 +180,8 @@ class CustomHttpClientxx {
       if (null != resp.statusCode) {
         return resp.realUri;
       }
-    } catch (e) {
-      CustomHttpClientxx.onLog?.call(e);
+    } catch (e, stack) {
+      CustomHttpClientxx.onLog?.call(e, stack);
     }
     return null;
   }

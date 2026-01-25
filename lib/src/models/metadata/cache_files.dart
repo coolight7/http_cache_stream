@@ -48,7 +48,8 @@ class CacheFiles {
     for (final file in cacheFiles) {
       if (await file.exists()) {
         deleted = true;
-        CustomHttpClientxx.onLog?.call('Deleting cache file: ${file.path}');
+        CustomHttpClientxx.onLog
+            ?.call('Deleting cache file: ${file.path}', null);
         await file.delete();
       }
     }
@@ -110,8 +111,9 @@ File _defaultCacheFile(Directory cacheDir, Uri sourceUrl) {
       recursive: true,
     ); //Create parent directories if they don't exist. This also helps validate the path.
     return outputFile;
-  } catch (e) {
-    CustomHttpClientxx.onLog?.call('Error generating default file path: $e');
+  } catch (e, stack) {
+    CustomHttpClientxx.onLog
+        ?.call('Error generating default file path: $e', stack);
   }
   //Fallback to a hash-based file name if the above fails
   return _cacheFileFromHash(cacheDir, sourceUrl);

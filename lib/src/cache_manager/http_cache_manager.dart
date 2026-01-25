@@ -127,7 +127,7 @@ class HttpCacheManager {
           continue; //Do not delete metadata if the cache file exists
         }
       }
-      CustomHttpClientxx.onLog?.call('Deleting cache file: ${file.path}');
+      CustomHttpClientxx.onLog?.call('Deleting cache file: ${file.path}', null);
       await file.delete();
     }
   }
