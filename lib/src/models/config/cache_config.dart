@@ -1,4 +1,4 @@
-import 'package:http/http.dart';
+import 'package:http_cache_stream/src/cache_stream/cache_downloader/custom_http_client.dart';
 
 abstract interface class CacheConfiguration {
   ///Custom headers to be sent when downloading cache.
@@ -44,7 +44,7 @@ abstract interface class CacheConfiguration {
   set minChunkSize(int value);
 
   /// The HTTP client used to download cache.
-  Client get httpClient;
+  CustomHttpClientxx get httpClient;
 
   /// When false, deletes partial cache files (including metadata) when a http cache stream is disposed before cache is complete.
   /// Default is true.

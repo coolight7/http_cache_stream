@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:http/http.dart' as http;
 import 'package:http_cache_stream/src/etc/extensions/string_extensions.dart';
+import 'package:util_xx/Httpxx.dart';
 
 import 'http_range.dart';
 
@@ -21,15 +21,24 @@ class HttpRangeResponse extends HttpRange {
     );
   }
 
+  static HttpRangeResponse? parseFromHeader(HttpFullHeaderAnyxx headers) {
+    final contentRangeHeader =
+        headers[HttpHeaders.contentRangeHeader]?.firstOrNull;
+    final contentLen = int.tryParse(
+      headers[HttpHeaders.contentLengthHeader]?.firstOrNull ?? '',
+    );
+    return parse(contentRangeHeader, contentLen);
+  }
+
   /// Parses the Content-Range header from a response. Does not support 416 responses.
   /// If the header is not present or is invalid, returns null.
-  static HttpRangeResponse? parse(final http.BaseResponse response) {
-    String? contentRangeHeader =
-        response.headers[HttpHeaders.contentRangeHeader];
-    if (contentRangeHeader == null) return null;
-
-    contentRangeHeader = contentRangeHeader.removeWhitespace();
-    if (!contentRangeHeader.startsWith(rangeHeaderPrefix)) {
+  static HttpRangeResponse? parse(
+    String? contentRangeHeader,
+    final int? contentLength,
+  ) {
+    contentRangeHeader = contentRangeHeader?.removeWhitespace();
+    if (null == contentRangeHeader ||
+        !contentRangeHeader.startsWith(rangeHeaderPrefix)) {
       return null;
     }
 
@@ -51,7 +60,9 @@ class HttpRangeResponse extends HttpRange {
     int? sourceLength;
     if (lengthPart != '*' && lengthPart.isNotEmpty) {
       sourceLength = int.tryParse(lengthPart);
-      if (sourceLength == null) return null;
+      if (sourceLength == null) {
+        return null;
+      }
     }
 
     return HttpRangeResponse(start, end, sourceLength: sourceLength);

@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:http/http.dart';
 import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -17,7 +16,6 @@ class GlobalCacheConfig implements CacheConfiguration {
     int? rangeRequestSplitThreshold,
     Map<String, String>? requestHeaders,
     Map<String, String>? responseHeaders,
-    this.customHttpClient,
     this.copyCachedResponseHeaders = false,
     this.validateOutdatedCache = false,
     this.savePartialCache = true,
@@ -25,7 +23,7 @@ class GlobalCacheConfig implements CacheConfiguration {
     this.saveAllHeaders = true,
     this.onCacheDone,
     this.readTimeout = const Duration(seconds: 30),
-  })  : httpClient = customHttpClient ?? Client(),
+  })  : httpClient = CustomHttpClientxx(),
         requestHeaders = requestHeaders ?? {},
         responseHeaders = responseHeaders ?? {},
         _maxBufferSize =
@@ -39,12 +37,7 @@ class GlobalCacheConfig implements CacheConfiguration {
   final Directory cacheDirectory;
 
   @override
-  final Client httpClient;
-
-  /// The custom HTTP client to use for downloading cache.
-  ///
-  /// If null, a default HTTP client will be used.
-  final Client? customHttpClient;
+  final CustomHttpClientxx httpClient;
 
   @override
   Map<String, String> requestHeaders;

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:http_cache_stream/http_cache_stream.dart';
+
 import '../request_handler/request_handler.dart';
 
 class LocalCacheServer {
@@ -28,14 +30,16 @@ class LocalCacheServer {
           } else {
             await processRequest(requestHandler);
           }
-        } catch (_) {
-          requestHandler.close(HttpStatus.internalServerError);
+        } catch (e) {
+          requestHandler.close(HttpStatus.internalServerError, e);
         } finally {
           assert(requestHandler.isClosed,
               'RequestHandler should be closed after processing the request');
         }
       },
-      onError: (_) {},
+      onError: (e) {
+        CustomHttpClientxx.onLog?.call('server onError: $e');
+      },
       cancelOnError: false,
     );
   }

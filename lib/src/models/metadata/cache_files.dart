@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart';
+import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:http_cache_stream/src/etc/const.dart';
 import 'package:http_cache_stream/src/etc/extensions/file_extensions.dart';
 import 'package:path/path.dart' as p;
@@ -48,6 +48,7 @@ class CacheFiles {
     for (final file in cacheFiles) {
       if (await file.exists()) {
         deleted = true;
+        CustomHttpClientxx.onLog?.call('Deleting cache file: ${file.path}');
         await file.delete();
       }
     }
@@ -110,7 +111,7 @@ File _defaultCacheFile(Directory cacheDir, Uri sourceUrl) {
     ); //Create parent directories if they don't exist. This also helps validate the path.
     return outputFile;
   } catch (e) {
-    if (kDebugMode) print('Error generating default file path: $e');
+    CustomHttpClientxx.onLog?.call('Error generating default file path: $e');
   }
   //Fallback to a hash-based file name if the above fails
   return _cacheFileFromHash(cacheDir, sourceUrl);

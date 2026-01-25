@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:http/http.dart' as http;
 import 'package:http_cache_stream/src/cache_server/local_cache_server.dart';
 import 'package:http_cache_stream/src/etc/extensions/uri_extensions.dart';
 
@@ -128,6 +127,7 @@ class HttpCacheManager {
           continue; //Do not delete metadata if the cache file exists
         }
       }
+      CustomHttpClientxx.onLog?.call('Deleting cache file: ${file.path}');
       await file.delete();
     }
   }
@@ -226,9 +226,8 @@ class HttpCacheManager {
       }
       _cacheServers.clear();
 
-      if (config.customHttpClient == null) {
-        config.httpClient.close(); // Close the default http client only
-      }
+      // httpClient 总是由默认创建的
+      config.httpClient.close(); // Close the default http client only
     }
   }
 
@@ -245,10 +244,9 @@ class HttpCacheManager {
   /// You can also provide [GlobalCacheConfig] for the initial configuration.
   static Future<HttpCacheManager> init({
     final Directory? cacheDir,
-    final http.Client? customHttpClient,
     final GlobalCacheConfig? config,
   }) {
-    assert(config == null || (cacheDir == null && customHttpClient == null),
+    assert(config == null || cacheDir == null,
         'Cannot set cacheDir or httpClient when config is provided. Set them in the config instead.');
     if (_instance != null) {
       return Future.value(instance);
@@ -259,7 +257,6 @@ class HttpCacheManager {
             GlobalCacheConfig(
               cacheDirectory:
                   cacheDir ?? await GlobalCacheConfig.defaultCacheDirectory(),
-              customHttpClient: customHttpClient,
             );
         final httpCacheServer = await LocalCacheServer.init();
         return _instance = HttpCacheManager._(httpCacheServer, cacheConfig);

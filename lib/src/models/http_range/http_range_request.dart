@@ -15,7 +15,7 @@ class HttpRangeRequest extends HttpRange {
   }
 
   static HttpRangeRequest? parse(final HttpRequest request) {
-    String? rangeHeader = request.headers.value(HttpHeaders.rangeHeader);
+    String? rangeHeader = request.headers[HttpHeaders.rangeHeader]?.firstOrNull;
     if (rangeHeader == null) return null;
 
     rangeHeader = rangeHeader.removeWhitespace();

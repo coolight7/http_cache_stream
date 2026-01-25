@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:http/http.dart';
 import 'package:http_cache_stream/http_cache_stream.dart';
+import 'package:util_xx/Httpxx.dart';
 
 /// Cache configuration for a single [HttpCacheStream].
 ///
@@ -138,18 +138,15 @@ class StreamCacheConfig implements CacheConfiguration {
   void Function(File cacheFile)? onCacheDone;
 
   /// Returns an immutable map of all custom request headers.
-  Map<String, String> combinedRequestHeaders() {
+  HttpHeaderxx combinedRequestHeaders() {
     return _combineHeaders(
       _global.requestHeaders,
       _requestHeaders,
-      defaultHeaders: const {
-        HttpHeaders.acceptEncodingHeader: 'identity'
-      }, // Avoid compressed responses
     );
   }
 
   /// Returns an immutable map of all custom response headers.
-  Map<String, String> combinedResponseHeaders() {
+  HttpHeaderxx combinedResponseHeaders() {
     return _combineHeaders(_global.responseHeaders, _responseHeaders);
   }
 
@@ -162,23 +159,23 @@ class StreamCacheConfig implements CacheConfiguration {
     _global.onCacheDone?.call(stream, cacheFile);
   }
 
-  Map<String, String> _combineHeaders(
+  HttpHeaderxx _combineHeaders(
     final Map<String, String> global,
     final Map<String, String>? local, {
-    final Map<String, String> defaultHeaders = const {},
+    final Map<String, String>? defaultHeaders,
   }) {
     final useGlobal = global.isNotEmpty && useGlobalHeaders;
     final useLocal = local != null && local.isNotEmpty;
-    if (!useGlobal && !useLocal) return defaultHeaders;
-    return Map.unmodifiable({
-      ...defaultHeaders,
+    if (!useGlobal && !useLocal) return Httpxx_c.createHeader();
+    return Httpxx_c.createHeader(data: {
+      if (null != defaultHeaders) ...defaultHeaders,
       if (useGlobal) ...global,
       if (useLocal) ...local,
     });
   }
 
   @override
-  Client get httpClient => _global.httpClient;
+  CustomHttpClientxx get httpClient => _global.httpClient;
 
   /// Stream-specific configuration
   bool _useGlobalRangeRequestSplitThreshold = true;
@@ -191,6 +188,6 @@ class StreamCacheConfig implements CacheConfiguration {
   int? _maxBufferSize;
   int? _minChunkSize;
   int? _rangeRequestSplitThreshold;
-  Map<String, String>? _requestHeaders;
-  Map<String, String>? _responseHeaders;
+  HttpHeaderAnyxx? _requestHeaders;
+  HttpHeaderAnyxx? _responseHeaders;
 }

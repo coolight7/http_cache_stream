@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:http/http.dart' as http;
+import 'package:util_xx/util_xx.dart';
 
 import '../http_range/http_range_response.dart';
 
@@ -41,7 +41,7 @@ class ReadTimedOutException extends DownloadException
 }
 
 class HttpStatusCodeException extends DownloadException {
-  HttpStatusCodeException(Uri url, int expected, int result)
+  HttpStatusCodeException(Uri url, int expected, int? result)
       : super(
           url,
           'Invalid HTTP status code | Expected: $expected | Result: $result',
@@ -59,18 +59,19 @@ class HttpStatusCodeException extends DownloadException {
 
   static void validateCompleteResponse(
     final Uri url,
-    final http.BaseResponse response,
+    final int? statusCode,
+    final HttpFullHeaderAnyxx headers,
   ) {
-    if (response.statusCode == HttpStatus.ok) {
+    if (statusCode == HttpStatus.ok) {
       return;
     }
 
-    if (response.statusCode == HttpStatus.partialContent) {
-      if (HttpRangeResponse.parse(response)?.isFull ?? true) {
+    if (statusCode == HttpStatus.partialContent) {
+      if (HttpRangeResponse.parseFromHeader(headers)?.isFull ?? true) {
         return;
       }
     }
 
-    throw HttpStatusCodeException(url, HttpStatus.ok, response.statusCode);
+    throw HttpStatusCodeException(url, HttpStatus.ok, statusCode);
   }
 }

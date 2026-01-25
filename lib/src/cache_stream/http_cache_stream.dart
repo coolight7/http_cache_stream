@@ -101,33 +101,11 @@ class HttpCacheStream {
     if (_validateCacheFuture != null) {
       return _validateCacheFuture;
     }
-    if (isDownloading || !cacheFile.existsSync()) {
-      return null; //Cache does not exist or is downloading
+    if (!isCached || isDownloading) {
+      return null;
     }
-    final currentHeaders =
-        metadata.headers ?? CachedResponseHeaders.fromFile(cacheFile)!;
-    if (!force && currentHeaders.shouldRevalidate() == false) return true;
-    _validateCacheFuture = CachedResponseHeaders.fromUrl(
-      sourceUrl,
-      httpClient: config.httpClient,
-      requestHeaders: config.combinedRequestHeaders(),
-    ).then((latestHeaders) async {
-      if (CachedResponseHeaders.validateCacheResponse(
-              currentHeaders, latestHeaders) ==
-          true) {
-        _setCachedResponseHeaders(latestHeaders);
-        return true;
-      } else {
-        if (resetInvalid) {
-          await _resetCache(CacheSourceChangedException(sourceUrl));
-        }
-        return false;
-      }
-    }).whenComplete(() {
-      _validateCacheFuture = null;
-      _calculateCacheProgress();
-    });
-    return _validateCacheFuture;
+    // 跳过变动检查
+    return true;
   }
 
   /// Downloads and returns [cacheFile]. If the file already exists, returns immediately. If a download is already in progress, returns the same future.

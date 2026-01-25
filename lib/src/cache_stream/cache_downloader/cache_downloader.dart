@@ -57,12 +57,7 @@ class CacheDownloader {
           },
           onHeaders: (cacheHttpHeaders) {
             if (downloadPosition > 0) {
-              final prevHeaders = _cachedHeaders;
-              if (prevHeaders != null &&
-                  !CachedResponseHeaders.validateCacheResponse(
-                      prevHeaders, cacheHttpHeaders)) {
-                throw CacheSourceChangedException(sourceUrl);
-              }
+              // coolight: 跳过内容变动验证
             }
 
             _cachedHeaders = cacheHttpHeaders;

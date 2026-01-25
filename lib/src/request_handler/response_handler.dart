@@ -51,9 +51,9 @@ class ResponseHandler {
             _request.response.headers
                 .set(HttpHeaders.contentRangeHeader, 'bytes */$sourceLength');
           }
-          close(HttpStatus.requestedRangeNotSatisfiable);
+          close(HttpStatus.requestedRangeNotSatisfiable, e);
         } else {
-          close(HttpStatus.internalServerError);
+          close(HttpStatus.internalServerError, e);
         }
       }
       rethrow;
@@ -88,7 +88,7 @@ class ResponseHandler {
     cacheConfig.combinedResponseHeaders().forEach(httpResponse.headers.set);
 
     String? contentType =
-        httpResponse.headers.value(HttpHeaders.contentTypeHeader) ??
+        httpResponse.headers[HttpHeaders.contentTypeHeader]?.firstOrNull ??
             cacheHeaders.get(HttpHeaders.contentTypeHeader);
     if (contentType == null ||
         contentType.isEmpty ||
@@ -122,9 +122,12 @@ class ResponseHandler {
   }
 
   /// Closes the response with an optional [statusCode].
-  void close([int? statusCode]) {
+  void close([int? statusCode, Object? error]) {
     if (_closed) return;
     _closed = true;
+    if (null != error) {
+      CustomHttpClientxx.onLog?.call('Req Error: $error');
+    }
     if (!_wroteHeaders && statusCode != null) {
       _request.response.statusCode = statusCode;
     }

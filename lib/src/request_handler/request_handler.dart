@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:string_util_xx/StringUtilxx.dart';
+import 'package:util_xx/Httpxx.dart';
+
 import '../../http_cache_stream.dart';
 import '../request_handler/response_handler.dart';
 import '../request_handler/socket_handler.dart';
@@ -19,6 +22,30 @@ class RequestHandler {
 
     StreamResponse? streamResponse;
     try {
+      final useHeader = Httpxx_c.createHeader();
+      // 过滤不规范的 header
+      _request.headers.forEach((name, values) {
+        if (StringUtilxx_c.isIgnoreCaseContains(
+              name,
+              HttpHeaders.hostHeader,
+            ) ||
+            StringUtilxx_c.isIgnoreCaseContains(
+              name,
+              HttpHeaders.acceptEncodingHeader,
+            )) {
+          return;
+        }
+        try {
+          final val = values.firstOrNull;
+          if (null != val) {
+            useHeader[name] = val;
+          }
+        } catch (_) {}
+      });
+      // 阻止使用 chunked
+      useHeader[HttpHeaders.acceptEncodingHeader] = 'identity';
+      cacheStream.config.requestHeaders = useHeader;
+
       streamResponse = await responseHandler.getResponse(cacheStream);
 
       if (responseHandler.isClosed) {
@@ -34,14 +61,17 @@ class RequestHandler {
           streamResponse.stream, cacheStream.config.readTimeout);
       _socketHandler = null; //Clear the socket handler after done.
     } catch (e) {
-      close(HttpStatus.internalServerError);
+      close(HttpStatus.internalServerError, e);
     } finally {
       streamResponse
           ?.cancel(); //Ensure we cancel the stream response to free resources.
     }
   }
 
-  void close([int? statusCode]) {
+  void close([int? statusCode, Object? error]) {
+    if (null != error) {
+      CustomHttpClientxx.onLog?.call('Req Error: $error');
+    }
     final responseHandler = _responseHandler;
     if (responseHandler != null) {
       _responseHandler = null;

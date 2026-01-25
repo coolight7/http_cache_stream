@@ -24,3 +24,4 @@ export 'src/models/metadata/cache_metadata.dart';
 export 'src/models/metadata/cached_response_headers.dart';
 export 'src/models/stream_requests/int_range.dart';
 export 'src/models/stream_response/stream_response.dart';
+export 'src/cache_stream/cache_downloader/custom_http_client.dart';
