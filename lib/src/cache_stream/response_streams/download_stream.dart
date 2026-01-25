@@ -26,7 +26,6 @@ class DownloadStream extends Stream<List<int>> {
     if (rangeRequest != null) {
       useHeader[HttpHeaders.rangeHeader] = rangeRequest.header;
     }
-
     final cancelToken = libdio.CancelToken();
     try {
       final resp = (await config.httpClient.getUrl(
@@ -53,6 +52,9 @@ class DownloadStream extends Stream<List<int>> {
           HttpRangeResponse.parseFromHeader(resp.headers),
         );
       }
+      print("==========================");
+      print(resp.headers);
+      print("==========================");
       return DownloadStream(resp, cancelToken);
     } catch (e) {
       try {

@@ -110,6 +110,9 @@ class CustomHttpClientxx {
         options: libdio.Options(
           headers: useHeader,
           responseType: libdio.ResponseType.stream,
+          followRedirects: true,
+          maxRedirects: 5,
+          receiveDataWhenStatusError: true,
         ),
       );
       final rangeResponse = HttpRangeResponse.parseFromHeader(resp.headers.map);

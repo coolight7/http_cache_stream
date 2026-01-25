@@ -13,7 +13,10 @@ import 'cache_files.dart';
 @immutable
 class CachedResponseHeaders {
   final HttpFullHeaderxx _headers;
-  CachedResponseHeaders._(this._headers);
+  CachedResponseHeaders._(
+    this._headers, {
+    int? sourceLength,
+  }) : _sourceLength = sourceLength;
 
   String? get(String key) => _headers[key]?.firstOrNull;
   List<String>? getList(String key) => _headers[key];
@@ -61,7 +64,9 @@ class CachedResponseHeaders {
 
   ///Gets the source length of the response. This is used to determine the total length of the response data.
   ///Returns null if the source length is unknown (e.g. for compressed or chunked responses). Otherwise, returns a positive integer.
-  late final int? sourceLength = isCompressedOrChunked ? null : contentLength;
+  int? get sourceLength =>
+      _sourceLength ?? (isCompressedOrChunked ? null : contentLength);
+  final int? _sourceLength;
 
   int? get contentLength {
     final contentLengthValue = get(HttpHeaders.contentLengthHeader);
@@ -102,7 +107,7 @@ class CachedResponseHeaders {
     headers.remove(HttpHeaders.contentRangeHeader);
     headers.remove(HttpHeaders.contentEncodingHeader);
     headers.remove(HttpHeaders.transferEncodingHeader);
-    return CachedResponseHeaders._(headers);
+    return CachedResponseHeaders._(headers, sourceLength: sourceLength);
   }
 
   /// Filters the headers to only include essential headers for caching.
@@ -139,7 +144,8 @@ class CachedResponseHeaders {
   ) {
     final headers = Httpxx_c.createFullHeader(data: respheaders);
 
-    if (headers.remove(HttpHeaders.contentRangeHeader) != null) {
+    int? rangeSourceLength;
+    if (headers.containsKey(HttpHeaders.contentRangeHeader)) {
       headers[HttpHeaders.acceptRangesHeader] = [
         'bytes'
       ]; // Ensure accept-ranges is set to bytes for range responses. Not all servers do this.
@@ -147,7 +153,7 @@ class CachedResponseHeaders {
       final HttpRangeResponse? rangeResponse =
           HttpRangeResponse.parseFromHeader(headers);
       if (rangeResponse != null) {
-        final int? rangeSourceLength = rangeResponse.sourceLength;
+        rangeSourceLength = rangeResponse.sourceLength;
         if (rangeSourceLength != null) {
           headers[HttpHeaders.contentLengthHeader] = [
             rangeSourceLength.toString()
@@ -158,7 +164,7 @@ class CachedResponseHeaders {
       }
     }
 
-    return CachedResponseHeaders._(headers);
+    return CachedResponseHeaders._(headers, sourceLength: rangeSourceLength);
   }
 
   ///Constructs a [CachedResponseHeaders] object from the given [url] by sending a HEAD request.
@@ -171,7 +177,7 @@ class CachedResponseHeaders {
       url,
       requestHeaders,
     );
-    if ((response.statusCode ?? 0) ~/ 100 != 2) {
+    if (false == Httpxx_c.statusCodeIsSuccess(response.statusCode)) {
       throw HttpStatusCodeException(
         url,
         HttpStatus.ok,
@@ -216,7 +222,7 @@ class CachedResponseHeaders {
       HttpHeaders.lastModifiedHeader: [HttpDate.format(fileStat.modified)],
       HttpHeaders.dateHeader: [HttpDate.format(DateTime.now())],
     });
-    return CachedResponseHeaders._(headers);
+    return CachedResponseHeaders._(headers, sourceLength: fileSize);
   }
 
   static CachedResponseHeaders? fromJson(dynamic json) {
