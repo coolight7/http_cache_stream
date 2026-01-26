@@ -102,8 +102,6 @@ class ResponseHandler {
       httpResponse.contentLength = streamResponse.sourceLength ?? -1;
       httpResponse.statusCode = HttpStatus.ok;
     } else {
-      print(
-          "${streamResponse.effectiveStart} ${streamResponse.effectiveEnd} ${streamResponse.sourceLength} ==================");
       final rangeResponse = HttpRangeResponse.inclusive(
         streamResponse.effectiveStart,
         streamResponse.effectiveEnd,

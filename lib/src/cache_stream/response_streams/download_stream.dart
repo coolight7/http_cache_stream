@@ -52,9 +52,6 @@ class DownloadStream extends Stream<List<int>> {
           HttpRangeResponse.parseFromHeader(resp.headers),
         );
       }
-      print("==========================");
-      print(resp.headers);
-      print("==========================");
       return DownloadStream(resp, cancelToken);
     } catch (e) {
       try {
