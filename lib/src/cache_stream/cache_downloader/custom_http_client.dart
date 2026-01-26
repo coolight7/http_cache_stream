@@ -138,7 +138,9 @@ class CustomHttpClientxx {
         ),
       );
       final code = resp.statusCode;
-      if (false == Httpxx_c.statusCodeIsSuccess(code)) {
+      if (false ==
+          Httpxx_c.respIsSuccess(code,
+              message: resp.statusMessage, allow3xx: true)) {
         throw HttpStatusCodeException(url, HttpStatus.ok, code ?? -1);
       }
       return resp;
@@ -157,9 +159,11 @@ class CustomHttpClientxx {
         headers: requestHeaders,
       ),
     );
-    final code = response.statusCode;
-    if (false == Httpxx_c.statusCodeIsSuccess(code)) {
-      throw HttpStatusCodeException(url, HttpStatus.ok, code ?? -1);
+    if (false ==
+        Httpxx_c.respIsSuccess(response.statusCode,
+            message: response.statusMessage, allow3xx: true)) {
+      throw HttpStatusCodeException(
+          url, HttpStatus.ok, response.statusCode ?? -1);
     }
     return response;
   }
