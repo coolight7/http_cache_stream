@@ -10,6 +10,7 @@ class SocketHandler {
     final Stream<List<int>> response,
     final Duration timeout,
   ) async {
+    // 每当有数据来临，重置超时检查
     final timeoutTimer = TimeoutTimer(timeout)..start(destroy);
     try {
       await _socket.addStream(response.map((data) {

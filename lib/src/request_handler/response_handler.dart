@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:string_util_xx/StringUtilxx.dart';
+
 import '../../http_cache_stream.dart';
 import '../etc/mime_types.dart';
 import '../models/exceptions/invalid_cache_exceptions.dart';
@@ -17,6 +19,7 @@ class ResponseHandler {
 
   /// Processes the request and returns a [StreamResponse].
   Future<StreamResponse> getResponse(final HttpCacheStream cacheStream) async {
+    // 首次响应请求超时，而非完整数据
     final timeoutTimer = Timer(cacheStream.config.readTimeout, () {
       close(HttpStatus.gatewayTimeout);
     });
@@ -83,9 +86,28 @@ class ResponseHandler {
       httpResponse.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
     }
     if (cacheConfig.copyCachedResponseHeaders) {
-      cacheHeaders.forEach(httpResponse.headers.set);
+      cacheHeaders.forEach((key, value) {
+        if (StringUtilxx_c.isIgnoreCaseEqual(
+            key, HttpHeaders.transferEncodingHeader)) {
+          return;
+        }
+        try {
+          httpResponse.headers.set(key, value);
+        } catch (_) {}
+      });
     }
-    cacheConfig.combinedResponseHeaders().forEach(httpResponse.headers.set);
+    {
+      final useHeader = cacheConfig.combinedResponseHeaders();
+      for (final item in useHeader.entries) {
+        if (StringUtilxx_c.isIgnoreCaseEqual(
+            item.key, HttpHeaders.transferEncodingHeader)) {
+          return;
+        }
+        try {
+          httpResponse.headers.set(item.key, item.value);
+        } catch (_) {}
+      }
+    }
 
     String? contentType =
         httpResponse.headers[HttpHeaders.contentTypeHeader]?.firstOrNull ??
@@ -126,7 +148,7 @@ class ResponseHandler {
     if (_closed) return;
     _closed = true;
     if (null != error) {
-      CustomHttpClientxx.onLog?.call('Req Error: $error', stack);
+      CustomHttpClientxx.onLog?.call('Resp Error: $error', stack);
     }
     if (!_wroteHeaders && statusCode != null) {
       _request.response.statusCode = statusCode;

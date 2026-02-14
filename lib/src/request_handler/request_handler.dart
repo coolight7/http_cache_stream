@@ -20,6 +20,7 @@ class RequestHandler {
       throw StateError('Request already being handled or closed');
     }
 
+    SocketHandler? socketHandler;
     StreamResponse? streamResponse;
     try {
       final useHeader = Httpxx_c.createHeader();
@@ -47,24 +48,26 @@ class RequestHandler {
       cacheStream.config.requestHeaders = useHeader;
 
       streamResponse = await responseHandler.getResponse(cacheStream);
-
       if (responseHandler.isClosed) {
         _responseHandler = null;
+        close(null, 'Request closed before we could start streaming');
         return; //Request closed before we could start streaming
       }
 
-      final socketHandler =
+      socketHandler =
           _socketHandler = SocketHandler(await responseHandler.detachSocket());
       _responseHandler =
           null; //We have detached the socket; we can no longer use the HttpRequest object.
       await socketHandler.writeResponse(
           streamResponse.stream, cacheStream.config.readTimeout);
       _socketHandler = null; //Clear the socket handler after done.
-    } catch (e) {
-      close(HttpStatus.internalServerError, e);
+    } catch (e, stack) {
+      close(HttpStatus.internalServerError, e, stack);
     } finally {
       streamResponse
           ?.cancel(); //Ensure we cancel the stream response to free resources.
+      socketHandler?.destroy();
+      responseHandler.close();
     }
   }
 
@@ -72,17 +75,11 @@ class RequestHandler {
     if (null != error) {
       CustomHttpClientxx.onLog?.call('Req Error: $error', stack);
     }
-    final responseHandler = _responseHandler;
-    if (responseHandler != null) {
-      _responseHandler = null;
-      responseHandler.close(statusCode);
-    }
+    _responseHandler?.close(statusCode);
+    _responseHandler = null;
 
-    final socketHandler = _socketHandler;
-    if (socketHandler != null) {
-      _socketHandler = null;
-      socketHandler.destroy();
-    }
+    _socketHandler?.destroy();
+    _socketHandler = null;
   }
 
   bool get isClosed =>

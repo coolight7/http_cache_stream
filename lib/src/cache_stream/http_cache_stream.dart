@@ -38,7 +38,6 @@ class HttpCacheStream {
       _cacheDownloader; //The active cache downloader, if any. This can be used to cancel the download.
   int _retainCount = 1; //The number of times the stream has been retained
   Future<File>? _downloadFuture; //The future for the current download, if any.
-  Future<bool>? _validateCacheFuture;
   double? _lastProgress; //The last progress value emitted by the stream
   Object? _lastError; //The last error emitted by the stream
   final _disposeCompleter =
@@ -61,9 +60,6 @@ class HttpCacheStream {
   /// If [start] or [end] are null, they default to the beginning and end
   /// of the file respectively.
   Future<StreamResponse> request({final int? start, final int? end}) async {
-    if (_validateCacheFuture != null) {
-      await _validateCacheFuture!;
-    }
     _checkDisposed();
     final range = IntRange.validate(start, end, metadata.sourceLength);
 
@@ -98,9 +94,6 @@ class HttpCacheStream {
     final bool force = false,
     final bool resetInvalid = false,
   }) async {
-    if (_validateCacheFuture != null) {
-      return _validateCacheFuture;
-    }
     if (!isCached || isDownloading) {
       return null;
     }
