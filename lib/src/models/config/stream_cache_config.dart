@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:util_xx/Httpxx.dart';
 
@@ -82,6 +83,11 @@ class StreamCacheConfig implements CacheConfiguration {
   }
 
   @override
+  Duration get requestTimeout {
+    return _requestTimeout ?? _global.requestTimeout;
+  }
+
+  @override
   bool get saveAllHeaders {
     return _saveAllHeaders ?? _global.saveAllHeaders;
   }
@@ -129,6 +135,11 @@ class StreamCacheConfig implements CacheConfiguration {
   }
 
   @override
+  set requestTimeout(Duration value) {
+    _requestTimeout = value;
+  }
+
+  @override
   set saveAllHeaders(bool value) {
     _saveAllHeaders = value;
   }
@@ -154,6 +165,7 @@ class StreamCacheConfig implements CacheConfiguration {
   /// and written to disk.
   ///
   /// To register a callback, use [onCacheDone].
+  @internal
   void onCacheComplete(HttpCacheStream stream, File cacheFile) {
     onCacheDone?.call(cacheFile);
     _global.onCacheDone?.call(stream, cacheFile);
@@ -180,6 +192,7 @@ class StreamCacheConfig implements CacheConfiguration {
   /// Stream-specific configuration
   bool _useGlobalRangeRequestSplitThreshold = true;
   Duration? _readTimeout;
+  Duration? _requestTimeout;
   bool? _copyCachedResponseHeaders;
   bool? _validateOutdatedCache;
   bool? _savePartialCache;

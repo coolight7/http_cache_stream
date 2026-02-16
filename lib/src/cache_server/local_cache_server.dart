@@ -25,13 +25,9 @@ class LocalCacheServer {
       (request) async {
         final requestHandler = RequestHandler(request);
         try {
-          if (request.method != 'GET') {
-            requestHandler.close(HttpStatus.methodNotAllowed);
-          } else {
-            await processRequest(requestHandler);
-          }
-        } catch (e) {
-          requestHandler.close(HttpStatus.internalServerError, e);
+          await processRequest(requestHandler);
+        } catch (e, stack) {
+          requestHandler.closeWithError(e, stack);
         } finally {
           assert(requestHandler.isClosed,
               'RequestHandler should be closed after processing the request');

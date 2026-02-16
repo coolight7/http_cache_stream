@@ -99,6 +99,8 @@ class CustomHttpClientxx {
     if (true == cancelToken?.isCancelled) {
       throw DownloadStoppedException(url);
     }
+    print(url);
+    print(requestHeaders);
 
     if (!range.isFull) {
       final rangeRequest = HttpRangeRequest.inclusive(range.start, range.end);

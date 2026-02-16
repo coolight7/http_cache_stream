@@ -68,7 +68,6 @@ class DownloadStream extends Stream<List<int>> {
     void Function()? onDone,
     bool? cancelOnError,
   }) {
-    _listened = true;
     return _streamedResponse.stream.listen(
       onData,
       onError: onError,
@@ -78,13 +77,11 @@ class DownloadStream extends Stream<List<int>> {
   }
 
   void cancel() {
-    if (_listened) return;
     try {
       cancelToken?.cancel();
     } catch (_) {}
   }
 
-  bool _listened = false;
   libdio.ResponseBody get baseResponse => _streamedResponse;
 
   HttpRangeResponse? get responseRange {

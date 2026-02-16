@@ -65,6 +65,11 @@ abstract interface class CacheConfiguration {
   Duration get readTimeout;
   set readTimeout(Duration value);
 
+  /// The timeout duration for stream requests. If a response is not received within this duration, the request will be cancelled.
+  /// Default is 60 seconds.
+  Duration get requestTimeout;
+  set requestTimeout(Duration value);
+
   ///Whether to save all response headers in the cached response metadata.
   ///
   ///When false, only essential headers required for cache responses and validation are saved.
@@ -87,6 +92,10 @@ abstract interface class CacheConfiguration {
   }
 
   static int validateMinChunkSize(int value) {
-    return RangeError.checkNotNegative(value, 'minChunkSize');
+    const minValue = 1024 * 8; // 8KB
+    if (value < minValue) {
+      throw RangeError.range(value, minValue, null, 'minChunkSize');
+    }
+    return value;
   }
 }

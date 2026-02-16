@@ -7,8 +7,8 @@ import 'package:http_cache_stream/src/models/http_range/http_range_response.dart
 import 'package:util_xx/util_xx.dart';
 
 import '../../etc/mime_types.dart';
+import '../cache_files/cache_files.dart';
 import '../exceptions/http_exceptions.dart';
-import 'cache_files.dart';
 
 @immutable
 class CachedResponseHeaders {
@@ -248,4 +248,9 @@ class CachedResponseHeaders {
       _headers.forEach(action);
 
   HttpFullHeaderxx get headerMap => Httpxx_c.createFullHeader(data: _headers);
+
+  @override
+  String toString() {
+    return 'CachedResponseHeaders{headers: $_headers}';
+  }
 }
