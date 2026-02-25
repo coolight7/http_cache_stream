@@ -99,8 +99,6 @@ class CustomHttpClientxx {
     if (true == cancelToken?.isCancelled) {
       throw DownloadStoppedException(url);
     }
-    print(url);
-    print(requestHeaders);
 
     if (!range.isFull) {
       final rangeRequest = HttpRangeRequest.inclusive(range.start, range.end);
@@ -128,6 +126,7 @@ class CustomHttpClientxx {
       }
       return resp;
     } else {
+      /// TODO: chunked 兼容
       final resp = await client.getUri<libdio.ResponseBody>(
         realUrl,
         cancelToken: cancelToken,
