@@ -104,7 +104,8 @@ class RequestHandler {
       switch (e) {
         case RangeError() || HttpRangeException():
           statusCode = HttpStatus.requestedRangeNotSatisfiable;
-          if (headers?.sourceLength case final int sourceLength) {
+          final sourceLength = headers?.sourceLength;
+          if (null != sourceLength) {
             _request.response.headers
                 .set(HttpHeaders.contentRangeHeader, 'bytes */$sourceLength');
           }
@@ -130,6 +131,7 @@ class RequestHandler {
     if (cacheHeaders.acceptsRangeRequests) {
       httpResponse.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
     }
+    // 自动处理了 chunked，响应时不再转发 chunked 头
     if (cacheConfig.copyCachedResponseHeaders) {
       cacheHeaders.forEach((key, value) {
         if (StringUtilxx_c.isIgnoreCaseEqual(
@@ -166,25 +168,33 @@ class RequestHandler {
     httpResponse.headers.set(HttpHeaders.contentTypeHeader, contentType);
 
     if (rangeRequest == null) {
-      httpResponse.contentLength = streamResponse.sourceLength ?? -1;
+      final sourceLen = streamResponse.sourceLength;
+      if (null != sourceLen && sourceLen >= 0) {
+        httpResponse.contentLength = sourceLen;
+      }
       httpResponse.statusCode = HttpStatus.ok;
     } else {
-      final rangeResponse = HttpRangeResponse.inclusive(
-        streamResponse.effectiveStart,
-        streamResponse.effectiveEnd,
-        streamResponse.sourceLength,
-      );
-      httpResponse.headers.set(
-        HttpHeaders.contentRangeHeader,
-        rangeResponse.header,
-      );
+      final sourceLen = streamResponse.sourceLength;
 
-      httpResponse.contentLength = rangeResponse.contentLength ?? -1;
+      if (null != sourceLen && sourceLen >= 0) {
+        // 存在响应范围，否则可能服务器不支持分段请求，响应了整个文件
+        // chunked 合并后未知总长度的 range 响应头可能导致 ffmpeg 关闭连接
+        final rangeResponse = HttpRangeResponse.inclusive(
+          streamResponse.effectiveStart,
+          streamResponse.effectiveEnd,
+          sourceLen,
+        );
+        httpResponse.headers.set(
+          HttpHeaders.contentRangeHeader,
+          rangeResponse.header,
+        );
+        httpResponse.contentLength = sourceLen;
+        assert(
+          HttpRange.isEqual(rangeRequest, rangeResponse),
+          'Invalid HttpRange: request: $rangeRequest | response: $rangeResponse | StreamResponse.Range: ${streamResponse.range}',
+        );
+      }
       httpResponse.statusCode = HttpStatus.partialContent;
-      assert(
-        HttpRange.isEqual(rangeRequest, rangeResponse),
-        'Invalid HttpRange: request: $rangeRequest | response: $rangeResponse | StreamResponse.Range: ${streamResponse.range}',
-      );
     }
   }
 

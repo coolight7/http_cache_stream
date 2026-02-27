@@ -71,8 +71,8 @@ class CachedResponseHeaders {
   int? get contentLength {
     final contentLengthValue = get(HttpHeaders.contentLengthHeader);
     if (contentLengthValue == null) return null;
-    final length = int.tryParse(contentLengthValue) ?? -1;
-    return length > 0 ? length : null;
+    final length = int.tryParse(contentLengthValue);
+    return (null != length && length >= 0) ? length : null;
   }
 
   /// Returns true if the response is compressed or chunked. This means that the content length != source length, and the source length cannot be determined until the download is complete.
