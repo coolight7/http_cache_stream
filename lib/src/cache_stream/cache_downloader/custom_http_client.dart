@@ -126,7 +126,6 @@ class CustomHttpClientxx {
       }
       return resp;
     } else {
-      /// TODO: chunked 兼容
       final resp = await client.getUri<libdio.ResponseBody>(
         realUrl,
         cancelToken: cancelToken,

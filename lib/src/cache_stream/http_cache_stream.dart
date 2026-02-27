@@ -208,13 +208,11 @@ class HttpCacheStream {
             _setCachedResponseHeaders(responseHeaders);
           },
           onError: (e) {
-            print("Download error: $e");
             assert(e is! InvalidCacheException);
             _addError(e, closeRequests: true);
           },
         );
       } catch (e) {
-        print("Download catch error: $e");
         _cacheDownloader = null;
         if (e is InvalidCacheException) {
           await _resetCache(e);
