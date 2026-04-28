@@ -2,10 +2,13 @@ import 'dart:io';
 
 import 'package:http_cache_stream/http_cache_stream.dart';
 
+import 'package:http_cache_stream/http_cache_stream.dart';
+
+import '../etc/keep_alive_server.dart';
 import '../request_handler/request_handler.dart';
 
 class LocalCacheServer {
-  final HttpServer _httpServer;
+  final KeepAliveServer _httpServer;
   final Uri serverUri;
   LocalCacheServer._(this._httpServer)
       : serverUri = Uri(
@@ -15,7 +18,8 @@ class LocalCacheServer {
         );
 
   static Future<LocalCacheServer> init() async {
-    final httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final httpServer =
+        await KeepAliveServer.bind(InternetAddress.loopbackIPv4, 0);
     return LocalCacheServer._(httpServer);
   }
 
@@ -40,12 +44,14 @@ class LocalCacheServer {
     );
   }
 
+  Future<void> ensureActive() => _httpServer.ensureActive();
+
   Uri getCacheUrl(Uri sourceUrl) {
     return sourceUrl.replace(
         scheme: serverUri.scheme, host: serverUri.host, port: serverUri.port);
   }
 
-  Future<void> close() {
-    return _httpServer.close(force: true);
+  Future<void> close({bool force = true}) {
+    return _httpServer.close(force: force);
   }
 }
