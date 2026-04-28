@@ -5,11 +5,6 @@ import 'dart:io';
 import 'package:dio/dio.dart' as libdio;
 import 'package:dio/io.dart';
 import 'package:http_cache_stream/http_cache_stream.dart';
-import 'package:http_cache_stream/src/models/exceptions/http_exceptions.dart';
-import 'package:http_cache_stream/src/models/exceptions/invalid_cache_exceptions.dart';
-import 'package:http_cache_stream/src/models/http_range/http_range.dart';
-import 'package:http_cache_stream/src/models/http_range/http_range_request.dart';
-import 'package:http_cache_stream/src/models/http_range/http_range_response.dart';
 import 'package:util_xx/Httpxx.dart';
 
 class CustomHttpClientxx {
