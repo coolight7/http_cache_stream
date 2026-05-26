@@ -54,6 +54,9 @@ class CustomHttpClientxx {
     client.httpClientAdapter = IOHttpClientAdapter(
       createHttpClient: _createHttpClient,
     );
+    client.transformer = libdio.FusedTransformer(
+      contentLengthIsolateThreshold: 1024 * 1024,
+    );
     client.interceptors.add(_interceptor);
   }
 
