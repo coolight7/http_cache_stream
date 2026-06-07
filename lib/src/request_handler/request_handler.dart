@@ -112,7 +112,7 @@ class RequestHandler {
       }
     }
 
-    close(statusCode, e);
+    close(statusCode, e, stack);
   }
 
   void _setHeaders(
@@ -196,7 +196,8 @@ class RequestHandler {
 
   void close([int? statusCode, Object? error, Object? stack]) {
     if (null != error) {
-      CustomHttpClientxx.onLog?.call('Req Error: $error', stack);
+      CustomHttpClientxx.onLog
+          ?.call('Req Error: $error', stack ?? StackTrace.current);
     }
     if (!_requestClosed) {
       _requestClosed = true;

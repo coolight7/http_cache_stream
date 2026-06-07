@@ -22,8 +22,9 @@ class IntRange implements Comparable<IntRange> {
       if (start > max) {
         throw RangeError.range(start, 0, max, 'start');
       }
-      if (end != null && end > max) {
-        throw RangeError.range(end, start, max, 'end');
+      if (end != null && end >= max) {
+        end = max - 1;
+        // throw RangeError.range(end, start, max, 'end');
       }
     }
     return IntRange(start, end);

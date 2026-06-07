@@ -178,8 +178,11 @@ class CachedResponseHeaders {
       requestHeaders,
     );
     if (false ==
-        Httpxx_c.respIsSuccess(response.statusCode,
-            message: response.statusMessage, allow3xx: true)) {
+        Httpxx_c.respIsSuccess(
+          response.statusCode,
+          message: response.statusMessage,
+          allow3xx: true,
+        )) {
       throw HttpStatusCodeException(
         url,
         HttpStatus.ok,

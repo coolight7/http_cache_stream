@@ -62,14 +62,14 @@ class HttpStatusCodeException extends DownloadException {
     final int? statusCode,
     final HttpFullHeaderAnyxx headers,
   ) {
-    if (statusCode == HttpStatus.ok) {
-      return;
-    }
-
     if (statusCode == HttpStatus.partialContent) {
       if (HttpRangeResponse.parseFromHeader(headers)?.isFull ?? true) {
         return;
       }
+    }
+    if (null != statusCode && statusCode >= 200 && statusCode < 300) {
+      // 2xx
+      return;
     }
 
     throw HttpStatusCodeException(url, HttpStatus.ok, statusCode);
