@@ -1,16 +1,14 @@
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:http_cache_stream/src/cache_stream/cache_downloader/custom_http_client.dart';
 import 'package:http_cache_stream/src/models/http_range/http_range_response.dart';
 import 'package:util_xx/util_xx.dart';
 
+import '../../etc/helpers.dart';
 import '../../etc/mime_types.dart';
 import '../cache_files/cache_files.dart';
 import '../exceptions/http_exceptions.dart';
 
-@immutable
 class CachedResponseHeaders {
   final HttpFullHeaderxx _headers;
   CachedResponseHeaders._(
@@ -72,7 +70,7 @@ class CachedResponseHeaders {
     final contentLengthValue = get(HttpHeaders.contentLengthHeader);
     if (contentLengthValue == null) return null;
     final length = int.tryParse(contentLengthValue);
-    return (null != length && length >= 0) ? length : null;
+    return (null != length && length > 0) ? length : null;
   }
 
   /// Returns true if the response is compressed or chunked. This means that the content length != source length, and the source length cannot be determined until the download is complete.
@@ -129,7 +127,7 @@ class CachedResponseHeaders {
 
     for (final header in essentialHeaders) {
       final value = _headers[header];
-      if (value != null) {
+      if (value != null && value.isNotEmpty) {
         retainedHeaders[header] = value;
       }
     }
@@ -195,8 +193,8 @@ class CachedResponseHeaders {
   static CachedResponseHeaders? fromCacheFiles(final CacheFiles cacheFiles) {
     try {
       if (cacheFiles.metadata.existsSync()) {
-        final json = jsonDecode(cacheFiles.metadata.readAsStringSync());
-        if (json is Map<String, dynamic>) {
+        final json = jsonDecodeBytes(cacheFiles.metadata.readAsBytesSync());
+        if (json is Map) {
           final headersFromJson =
               CachedResponseHeaders.fromJson(json['headers']);
           if (headersFromJson != null) return headersFromJson;
@@ -208,10 +206,29 @@ class CachedResponseHeaders {
     }
   }
 
+  static Future<CachedResponseHeaders?> fromCacheFilesAsync(
+      final CacheFiles cacheFiles) async {
+    try {
+      if (await cacheFiles.metadata.exists()) {
+        final json = jsonDecodeBytes(await cacheFiles.metadata.readAsBytes());
+        if (json is Map) {
+          final headersFromJson =
+              CachedResponseHeaders.fromJson(json['headers']);
+          if (headersFromJson != null) return headersFromJson;
+        }
+      }
+      return CachedResponseHeaders.fromFile(
+          cacheFiles.complete, await cacheFiles.complete.stat());
+    } catch (_) {
+      return null;
+    }
+  }
+
   ///Simulates a [CachedResponseHeaders] object from the given [file].
   ///Returns null if the file does not exist or is empty.
-  static CachedResponseHeaders? fromFile(final File file) {
-    final fileStat = file.statSync();
+  static CachedResponseHeaders? fromFile(final File file,
+      [FileStat? fileStat]) {
+    fileStat ??= file.statSync();
     final fileSize = fileStat.size;
     if (fileStat.type != FileSystemEntityType.file || fileSize <= 0) {
       return null;
@@ -231,7 +248,7 @@ class CachedResponseHeaders {
   }
 
   static CachedResponseHeaders? fromJson(dynamic json) {
-    if (json is! Map<String, dynamic>) return null;
+    if (json is! Map) return null;
     final headers = Httpxx_c.createFullHeader();
     json.forEach((key, value) {
       if (value is List) {

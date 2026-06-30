@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import 'package:http_cache_stream/src/cache_stream/cache_downloader/custom_http_client.dart';
 
 typedef CacheFileResolver = File Function(
     Directory cacheDirectory, Uri sourceUrl);
@@ -37,8 +37,10 @@ File defaultCacheFileResolver(Directory cacheDirectory, Uri sourceUrl) {
       throw ('Generated file path exceeds maximum length of $maxPathLength characters');
     }
     return outputFile;
-  } catch (e) {
-    if (kDebugMode) print('Error generating default file path: $e');
+  } catch (e, stack) {
+    CustomHttpClientxx.onLog?.call([
+      e.toString(),
+    ], stack);
     //Fallback to a hash-based file name if the above fails
     return hashCacheFileResolver(cacheDirectory, sourceUrl);
   }

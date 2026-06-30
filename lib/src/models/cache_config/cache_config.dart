@@ -1,4 +1,8 @@
+import 'dart:io';
+
 import 'package:http_cache_stream/src/cache_stream/cache_downloader/custom_http_client.dart';
+import 'package:http_cache_stream/src/models/cache_config/stream_lifecycle_config.dart';
+import 'package:http_cache_stream/src/cache_stream/http_cache_stream.dart';
 
 abstract interface class CacheConfiguration {
   ///Custom headers to be sent when downloading cache.
@@ -78,6 +82,14 @@ abstract interface class CacheConfiguration {
   bool get saveAllHeaders;
   set saveAllHeaders(bool value);
 
+  /// The lifecycle configuration for the cache stream, which controls when the cache stream should be automatically disposed.
+  StreamLifecycleConfig get lifecycleConfig;
+  set lifecycleConfig(StreamLifecycleConfig config);
+
+  /// Callback that is called when the cache is completely downloaded and written to disk.
+  CacheCompleteCallback? get onCacheDone;
+  set onCacheDone(CacheCompleteCallback? callback);
+
   static int? validateRangeRequestSplitThreshold(int? value) {
     if (value == null) return null;
     return RangeError.checkNotNegative(value, 'RangeRequestSplitThreshold');
@@ -99,3 +111,6 @@ abstract interface class CacheConfiguration {
     return value;
   }
 }
+
+typedef CacheCompleteCallback = void Function(
+    HttpCacheStream stream, File completedCacheFile);

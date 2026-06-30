@@ -161,6 +161,7 @@ class RequestHandler {
       contentType =
           MimeTypes.fromPath(_request.uri.path) ?? MimeTypes.octetStream;
     }
+
     httpResponse.headers.set(HttpHeaders.contentTypeHeader, contentType);
 
     if (rangeRequest == null) {

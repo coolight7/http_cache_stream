@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:util_xx/Httpxx.dart';
 
+import '../../etc/helpers.dart';
+
 /// Cache configuration for a single [HttpCacheStream].
 ///
 /// Values set here override the global values set in [GlobalCacheConfig].
@@ -46,6 +48,11 @@ class StreamCacheConfig implements CacheConfiguration {
   @override
   bool get validateOutdatedCache {
     return _validateOutdatedCache ?? _global.validateOutdatedCache;
+  }
+
+  @override
+  StreamLifecycleConfig get lifecycleConfig {
+    return _lifecycleConfig ?? _global.lifecycleConfig;
   }
 
   @override
@@ -143,9 +150,13 @@ class StreamCacheConfig implements CacheConfiguration {
     _saveAllHeaders = value;
   }
 
-  /// Register a callback to be called when this stream's cache is completely
-  /// downloaded and written to disk.
-  void Function(File cacheFile)? onCacheDone;
+  @override
+  set lifecycleConfig(StreamLifecycleConfig config) {
+    _lifecycleConfig = config;
+  }
+
+  @override
+  CacheCompleteCallback? onCacheDone;
 
   /// Returns an immutable map of all custom request headers.
   HttpHeaderxx combinedRequestHeaders() {
@@ -164,9 +175,13 @@ class StreamCacheConfig implements CacheConfiguration {
   /// and written to disk.
   ///
   /// To register a callback, use [onCacheDone].
-  void onCacheComplete(HttpCacheStream stream, File cacheFile) {
-    onCacheDone?.call(cacheFile);
-    _global.onCacheDone?.call(stream, cacheFile);
+  void handleCacheCompletion(HttpCacheStream stream, File cacheFile) {
+    if (onCacheDone case final cacheDoneCallback?) {
+      fireUserCallback(() => cacheDoneCallback(stream, cacheFile));
+    }
+    if (_global.onCacheDone case final globalCacheDoneCallback?) {
+      fireUserCallback(() => globalCacheDoneCallback(stream, cacheFile));
+    }
   }
 
   HttpHeaderxx _combineHeaders(
@@ -189,6 +204,7 @@ class StreamCacheConfig implements CacheConfiguration {
 
   /// Stream-specific configuration
   bool _useGlobalRangeRequestSplitThreshold = true;
+  StreamLifecycleConfig? _lifecycleConfig;
   Duration? _readTimeout;
   Duration? _requestTimeout;
   bool? _copyCachedResponseHeaders;
