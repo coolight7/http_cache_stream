@@ -12,7 +12,6 @@ class SocketHandler {
     final Stream<List<int>> response,
     final Duration timeout,
   ) async {
-    // 每当有数据来临，重置超时检查
     final timeoutTimer = TimeoutTimer(timeout)..start(destroy);
     StreamSubscription<Uint8List>? socketSubscription;
 
@@ -23,6 +22,7 @@ class SocketHandler {
         onError: (_) => destroy(), //Error on socket
         cancelOnError: true,
       );
+
       await _socket.addStream(response.map((data) {
         timeoutTimer.reset();
         return data;

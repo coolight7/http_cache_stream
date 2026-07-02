@@ -13,12 +13,10 @@ import 'download_response_listener.dart';
 class Downloader {
   final Uri sourceUrl;
   final StreamCacheConfig streamConfig;
-
   Downloader(
     this.sourceUrl,
     this.streamConfig,
   );
-
   bool _done = false;
   bool _closed = false;
   DownloadResponseListener? _responseListener;

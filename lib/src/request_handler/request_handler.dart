@@ -75,44 +75,19 @@ class RequestHandler {
 
       timeoutTimer.cancel();
       _requestClosed = true; //Response is now being handled via socket
-      _socketHandler = SocketHandler(
+      final socketHandler = _socketHandler = SocketHandler(
           await _request.response.detachSocket(writeHeaders: true));
-      await _socketHandler?.writeResponse(
+      await socketHandler.writeResponse(
           streamResponse.stream, cacheStream.config.readTimeout);
       _socketHandler = null; //Clear the socket handler after done.
     } catch (e, stack) {
       closeWithError(e, stack, cacheStream.metadata.headers);
     } finally {
       timeoutTimer.cancel();
-      _socketHandler?.destroy();
-      _socketHandler = null;
       streamResponse
           ?.cancel(); //Ensure we cancel the stream response to free resources.
       streamResponse = null;
     }
-  }
-
-  void closeWithError(final Object e,
-      [final Object? stack, final CachedResponseHeaders? headers]) {
-    int? statusCode;
-
-    if (!_requestClosed) {
-      switch (e) {
-        case RangeError() || HttpRangeException():
-          statusCode = HttpStatus.requestedRangeNotSatisfiable;
-          final sourceLength = headers?.sourceLength;
-          if (null != sourceLength) {
-            _request.response.headers
-                .set(HttpHeaders.contentRangeHeader, 'bytes */$sourceLength');
-          }
-        case TimeoutException():
-          statusCode = HttpStatus.gatewayTimeout;
-        default:
-          statusCode = HttpStatus.internalServerError;
-      }
-    }
-
-    close(statusCode, e, stack);
   }
 
   void _setHeaders(
@@ -144,7 +119,7 @@ class RequestHandler {
       for (final item in useHeader.entries) {
         if (StringUtilxx_c.isIgnoreCaseEqual(
             item.key, HttpHeaders.transferEncodingHeader)) {
-          return;
+          continue;
         }
         try {
           httpResponse.headers.set(item.key, item.value);
@@ -165,6 +140,7 @@ class RequestHandler {
     httpResponse.headers.set(HttpHeaders.contentTypeHeader, contentType);
 
     if (rangeRequest == null) {
+      httpResponse.headers.removeAll(HttpHeaders.contentRangeHeader);
       final sourceLen = streamResponse.sourceLength;
       if (null != sourceLen && sourceLen >= 0) {
         httpResponse.contentLength = sourceLen;
@@ -185,7 +161,7 @@ class RequestHandler {
           HttpHeaders.contentRangeHeader,
           rangeResponse.header,
         );
-        httpResponse.contentLength = sourceLen;
+        httpResponse.contentLength = streamResponse.contentLength ?? sourceLen;
         assert(
           HttpRange.isEqual(rangeRequest, rangeResponse),
           'Invalid HttpRange: request: $rangeRequest | response: $rangeResponse | StreamResponse.Range: ${streamResponse.range}',
@@ -193,6 +169,29 @@ class RequestHandler {
       }
       httpResponse.statusCode = HttpStatus.partialContent;
     }
+  }
+
+  void closeWithError(final Object e,
+      [final Object? stack, final CachedResponseHeaders? headers]) {
+    int? statusCode;
+
+    if (!_requestClosed) {
+      switch (e) {
+        case RangeError() || HttpRangeException():
+          statusCode = HttpStatus.requestedRangeNotSatisfiable;
+          final sourceLength = headers?.sourceLength;
+          if (null != sourceLength) {
+            _request.response.headers
+                .set(HttpHeaders.contentRangeHeader, 'bytes */$sourceLength');
+          }
+        case TimeoutException():
+          statusCode = HttpStatus.gatewayTimeout;
+        default:
+          statusCode = HttpStatus.internalServerError;
+      }
+    }
+
+    close(statusCode, e, stack);
   }
 
   void close([int? statusCode, Object? error, Object? stack]) {

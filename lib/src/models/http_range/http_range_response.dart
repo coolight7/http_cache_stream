@@ -60,9 +60,7 @@ class HttpRangeResponse extends HttpRange {
     int? sourceLength;
     if (lengthPart != '*' && lengthPart.isNotEmpty) {
       sourceLength = int.tryParse(lengthPart);
-      if (sourceLength == null) {
-        return null;
-      }
+      if (sourceLength == null) return null;
     }
 
     return HttpRangeResponse(start, end, sourceLength: sourceLength);

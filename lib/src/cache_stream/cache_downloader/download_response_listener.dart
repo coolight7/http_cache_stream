@@ -9,7 +9,6 @@ class DownloadResponseListener {
   late final StreamSubscription<List<int>> _subscription;
   final ChunkedBytesBuffer _buffer;
   final TimeoutTimer _timeoutTimer;
-
   DownloadResponseListener(
     final Uri sourceUrl,
     final Stream<List<int>> stream,

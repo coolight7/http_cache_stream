@@ -160,6 +160,7 @@ class CachedResponseHeaders {
           headers.remove(HttpHeaders.contentLengthHeader);
         }
       }
+      headers.remove(HttpHeaders.contentRangeHeader);
     }
 
     return CachedResponseHeaders._(headers, sourceLength: rangeSourceLength);
@@ -251,7 +252,7 @@ class CachedResponseHeaders {
     if (json is! Map) return null;
     final headers = Httpxx_c.createFullHeader();
     json.forEach((key, value) {
-      if (value is List) {
+      if (value is Iterable) {
         headers[key] = [value.join(', ')];
       } else if (value != null) {
         headers[key] = [value.toString()];

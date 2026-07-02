@@ -194,7 +194,9 @@ class HttpCacheManager {
     } finally {
       _customCacheFiles.clear();
       for (final stream in _streams.values.toList()) {
-        stream.dispose().ignore();
+        try {
+          await stream.dispose();
+        } catch (_) {}
       }
       _streams.clear();
 

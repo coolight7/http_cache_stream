@@ -145,7 +145,7 @@ class HttpCacheStream {
     final bool resetInvalid = false,
   }) async {
     _checkDisposed();
-    if (isDownloading || false == await cacheFile.exists()) {
+    if (isDownloading || !cacheState.isComplete) {
       return null; //Cache does not exist or is downloading
     }
     // 跳过变动检查
