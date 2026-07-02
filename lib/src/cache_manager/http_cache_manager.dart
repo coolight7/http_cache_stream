@@ -96,7 +96,7 @@ class HttpCacheManager {
   /// Set [partialOnly] to true to only delete partial downloads.
   Future<void> deleteCache({bool partialOnly = false}) async {
     if (!partialOnly && _streams.isEmpty) {
-      if (cacheDir.existsSync()) {
+      if (await cacheDir.exists()) {
         await cacheDir.delete(recursive: true);
       }
       return;
