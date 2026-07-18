@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:http_cache_stream/src/etc/extensions/string_extensions.dart';
 import 'package:util_xx/Httpxx.dart';
@@ -13,10 +14,13 @@ class HttpRangeResponse extends HttpRange {
     final int? end, {
     final int? sourceLength,
   }) {
-    HttpRange.validate(start, end, sourceLength);
+    final useEnd = (null == end || null == sourceLength)
+        ? end
+        : math.min(end, sourceLength - 1);
+    HttpRange.validate(start, useEnd, sourceLength);
     return HttpRangeResponse._(
       start,
-      end,
+      useEnd,
       sourceLength: sourceLength,
     );
   }

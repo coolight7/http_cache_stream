@@ -211,6 +211,7 @@ class HttpCacheStream {
             },
           );
         } catch (e) {
+          _cacheDownloader = null; //Clear immediately so new requests don't attempt to use this downloader
           if (e is InvalidCacheException) {
             await _resetCache(e);
           } else {

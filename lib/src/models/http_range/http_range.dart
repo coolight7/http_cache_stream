@@ -44,6 +44,19 @@ abstract class HttpRange {
     return true;
   }
 
+  static bool contains(HttpRange previous, HttpRange next) {
+    if (previous.start != next.start) {
+      return false;
+    }
+    if (previous.end != null && next.end != null) {
+      if (previous.end! < next.end!) return false;
+    }
+    if (previous.sourceLength != null && next.sourceLength != null) {
+      if (previous.sourceLength != next.sourceLength) return false;
+    }
+    return true;
+  }
+
   /// The end byte position (exclusive).
   int? get endEx => end != null ? end! + 1 : null;
 

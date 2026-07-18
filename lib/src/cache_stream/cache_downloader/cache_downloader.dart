@@ -84,9 +84,12 @@ class CacheDownloader {
             _pendingStreamBytes = data.length;
             onPosition(
                 downloadPosition); //Emit current position to update progress and synchronously process queued requests
-            _streamController.add(
-                data); //Add after processing queued requests. Requests may be fulfilled from the data.
-            _pendingStreamBytes = 0;
+            try {
+              _streamController.add(
+                  data); //Add after processing queued requests. Requests may be fulfilled from the data.
+            } finally {
+              _pendingStreamBytes = 0;
+            }
 
             if (_sink.bufferSize > maxBufferSize) {
               _downloader

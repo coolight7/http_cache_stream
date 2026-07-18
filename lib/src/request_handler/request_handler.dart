@@ -74,9 +74,9 @@ class RequestHandler {
       }
 
       timeoutTimer.cancel();
-      _requestClosed = true; //Response is now being handled via socket
       final socketHandler = _socketHandler = SocketHandler(
           await _request.response.detachSocket(writeHeaders: true));
+      _requestClosed = true; //Response is now being handled via socket
       await socketHandler.writeResponse(
           streamResponse.stream, cacheStream.config.readTimeout);
       _socketHandler = null; //Clear the socket handler after done.
@@ -163,7 +163,7 @@ class RequestHandler {
         );
         httpResponse.contentLength = streamResponse.contentLength ?? sourceLen;
         assert(
-          HttpRange.isEqual(rangeRequest, rangeResponse),
+          HttpRange.contains(rangeRequest, rangeResponse),
           'Invalid HttpRange: request: $rangeRequest | response: $rangeResponse | StreamResponse.Range: ${streamResponse.range}',
         );
       }

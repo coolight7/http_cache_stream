@@ -19,7 +19,13 @@ class DownloadResponseListener {
     _subscription = stream.listen(
       (data) {
         _timeoutTimer.reset();
-        _buffer.add(data);
+        try {
+          _buffer.add(data);
+        } catch (e, stack) {
+          _buffer.flush();
+          _timeoutTimer.cancel();
+          _completer.completeError(e, stack);
+        }
       },
       onDone: () {
         _buffer.flush();

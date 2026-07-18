@@ -38,7 +38,7 @@ class HttpRangeException extends InvalidCacheException implements RangeError {
     final HttpRangeRequest request,
     final HttpRangeResponse? response,
   ) {
-    if (response == null || !HttpRange.isEqual(request, response)) {
+    if (response == null || !HttpRange.contains(request, response)) {
       throw HttpRangeException(url, request, response);
     }
   }

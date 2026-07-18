@@ -115,7 +115,7 @@ class CustomHttpClientxx {
       );
       final rangeResponse = HttpRangeResponse.parseFromHeader(resp.headers.map);
       if (rangeResponse == null ||
-          !HttpRange.isEqual(rangeRequest, rangeResponse)) {
+          !HttpRange.contains(rangeRequest, rangeResponse)) {
         throw HttpRangeException(
           realUrl,
           rangeRequest,
