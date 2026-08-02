@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../benchmark/benchmark_controller.dart';
+import 'benchmark_form.dart';
 import 'widgets/cache_progress_panel.dart';
 import 'widgets/config_panel.dart';
 import 'widgets/log_panel.dart';
@@ -17,9 +18,14 @@ class BenchmarkPage extends StatefulWidget {
 class _BenchmarkPageState extends State<BenchmarkPage> {
   final BenchmarkController _controller = BenchmarkController();
 
+  /// Owned by the page so the inputs outlive the config panel, which the
+  /// lazily-built lists dispose whenever it scrolls out of view.
+  final BenchmarkForm _form = BenchmarkForm();
+
   @override
   void dispose() {
     _controller.dispose();
+    _form.dispose();
     super.dispose();
   }
 
@@ -72,6 +78,7 @@ class _BenchmarkPageState extends State<BenchmarkPage> {
         builder: (context, _) {
           final isBusy = _controller.phase.isBusy;
           final config = ConfigPanel(
+            form: _form,
             isBusy: isBusy,
             canCancel: isBusy && _controller.phase != BenchmarkPhase.cancelling,
             onRun: _controller.start,
