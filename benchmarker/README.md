@@ -29,6 +29,21 @@ respawned when the concurrency or the client implementation changes.
 | Source URL | The remote URL under test. |
 | Concurrency | Number of worker isolates. |
 | Total requests | Requests issued in total, divided evenly between the workers (the remainder goes to the lowest-numbered workers). |
+| Byte range | Portion of the source each request asks for, via a range slider. |
+
+### Partial responses
+
+The range slider needs the source's size to express a selection in bytes, so
+**Fetch length** probes the URL first — a `HEAD`, falling back to a one-byte
+range request, which also reveals whether the server honors `Range` at all. The
+probed length is dropped as soon as the URL is edited, so a stale size can never
+be applied to a different source.
+
+Each request then carries `Range: bytes=<start>-<end>`, and the response's byte
+count is verified against its `Content-Length` exactly as a full response is. A
+selection covering the whole source sends no `Range` header, and a run whose
+range requests come back as anything other than `206 Partial Content` logs a
+warning once — the server is likely ignoring the range.
 
 ### Run types
 
@@ -77,9 +92,13 @@ lib/
     benchmark_stats.dart                 timing/percentile accumulation
     benchmark_worker.dart                worker isolate entry point
     http_client_builder.dart             selectable http client implementations
+    source_probe.dart                    content-length / range-support probe
     worker_pool.dart                     long-lived isolate pool
     worker_protocol.dart                 messages exchanged with the workers
-  src/ui/                                page and panels
+  src/ui/
+    benchmark_form.dart                  input state, owned by the page
+    benchmark_page.dart                  page layout
+    widgets/                             config, progress, stats and log panels
 ```
 
 ## Tests

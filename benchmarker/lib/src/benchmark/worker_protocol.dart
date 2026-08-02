@@ -30,6 +30,7 @@ class RunJobCommand extends WorkerCommand {
     required this.url,
     required this.requestCount,
     required this.firstSequence,
+    this.rangeHeader,
   });
 
   final int jobId;
@@ -41,6 +42,10 @@ class RunJobCommand extends WorkerCommand {
 
   /// Global index of this job's first request, used to label results.
   final int firstSequence;
+
+  /// Value for the `Range` header, e.g. `bytes=0-1023`. Null requests the full
+  /// response.
+  final String? rangeHeader;
 }
 
 /// Stop the active job early. The worker still reports a [JobDoneEvent].

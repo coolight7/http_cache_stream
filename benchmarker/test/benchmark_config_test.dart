@@ -41,6 +41,41 @@ void main() {
     });
   });
 
+  group('ByteRange.fromFractions', () {
+    test('resolves fractions to an inclusive byte range', () {
+      final range = ByteRange.fromFractions(0.25, 0.5, 1000)!;
+      expect(range.start, 250);
+      expect(range.end, 499);
+      expect(range.length, 250);
+      expect(range.header, 'bytes=250-499');
+    });
+
+    test('returns null for a full selection so no Range header is sent', () {
+      expect(ByteRange.fromFractions(0, 1, 1000), isNull);
+      // Rounds up to the last byte, which is still the whole body.
+      expect(ByteRange.fromFractions(0, 0.9999, 1000), isNull);
+    });
+
+    test('returns null for an empty selection', () {
+      expect(ByteRange.fromFractions(0.5, 0.5, 1000), isNull);
+      expect(ByteRange.isEmptySelection(0.5, 0.5, 1000), isTrue);
+      expect(ByteRange.isEmptySelection(0, 1, 1000), isFalse);
+      expect(ByteRange.isEmptySelection(0, 0.9999, 1000), isFalse);
+    });
+
+    test('keeps the tail range within the source', () {
+      final range = ByteRange.fromFractions(0.5, 1, 1001)!;
+      expect(range.start, 500);
+      expect(range.end, 1000);
+      expect(range.length, 501);
+    });
+
+    test('returns null when the content length is unknown or zero', () {
+      expect(ByteRange.fromFractions(0.1, 0.2, 0), isNull);
+      expect(ByteRange.resolveBounds(0.1, 0.2, 0), isNull);
+    });
+  });
+
   group('validate', () {
     test('accepts a well-formed config', () {
       expect(

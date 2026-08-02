@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http_cache_stream/http_cache_stream.dart';
@@ -51,6 +52,7 @@ class BenchmarkController extends ChangeNotifier {
   bool _cancelRequested = false;
   bool _dirty = false;
   bool _warnedUnverified = false;
+  bool _warnedRangeIgnored = false;
   bool _disposed = false;
 
   BenchmarkPhase _phase = BenchmarkPhase.idle;
@@ -89,6 +91,7 @@ class BenchmarkController extends ChangeNotifier {
     _config = config;
     _cancelRequested = false;
     _warnedUnverified = false;
+    _warnedRangeIgnored = false;
     _problemCounts.clear();
     _accumulator = StatsAccumulator(config.totalRequests);
     _stats = BenchmarkStats.empty(config.totalRequests);
@@ -103,6 +106,12 @@ class BenchmarkController extends ChangeNotifier {
       '${config.totalRequests} requests · ${config.concurrency} workers · '
       '${config.clientOption.label}',
     );
+    if (config.range case final range?) {
+      _log(
+        'Partial responses: Range ${range.header} '
+        '(${formatBytes(range.length)} per request).',
+      );
+    }
 
     _setPhase(BenchmarkPhase.preparing);
     _startTicker();
@@ -266,6 +275,7 @@ class BenchmarkController extends ChangeNotifier {
           url: target.toString(),
           requestCount: count,
           firstSequence: sequence,
+          rangeHeader: config.range?.header,
         ),
       );
       sequence += count;
@@ -366,6 +376,17 @@ class BenchmarkController extends ChangeNotifier {
   /// Logs problems without flooding the log: the first occurrence of each
   /// distinct problem is logged, then only at power-of-ten milestones.
   void _noteResult(RequestResult result) {
+    if (_config?.range != null &&
+        !_warnedRangeIgnored &&
+        result.statusCode != null &&
+        result.statusCode != HttpStatus.partialContent) {
+      _warnedRangeIgnored = true;
+      _log(
+        'Range request answered with HTTP ${result.statusCode} instead of 206; '
+        'the server may be ignoring the requested range.',
+        level: LogLevel.warning,
+      );
+    }
     if (result.outcome == RequestOutcome.unverified && !_warnedUnverified) {
       _warnedUnverified = true;
       _log(

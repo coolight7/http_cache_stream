@@ -30,6 +30,76 @@ enum BenchmarkType {
   bool get usesCacheServer => this != BenchmarkType.direct;
 }
 
+/// An inclusive byte range, matching HTTP `Range` semantics.
+class ByteRange {
+  const ByteRange(this.start, this.end)
+      : assert(start >= 0),
+        assert(end >= start);
+
+  /// First byte requested, inclusive.
+  final int start;
+
+  /// Last byte requested, inclusive.
+  final int end;
+
+  /// Number of bytes the response should carry.
+  int get length => end - start + 1;
+
+  /// Value for the `Range` request header.
+  String get header => 'bytes=$start-$end';
+
+  /// Builds a range from two fractions of [contentLength], as produced by the
+  /// range slider. Returns null when the selection covers the whole source —
+  /// no `Range` header is sent then — or when it is empty.
+  static ByteRange? fromFractions(
+    double startFraction,
+    double endFraction,
+    int contentLength,
+  ) {
+    final bounds = resolveBounds(startFraction, endFraction, contentLength);
+    if (bounds == null) return null;
+    if (bounds.start <= 0 && bounds.endExclusive >= contentLength) {
+      return null; // Whole body.
+    }
+    if (bounds.endExclusive <= bounds.start) return null; // Empty selection.
+    return ByteRange(bounds.start, bounds.endExclusive - 1);
+  }
+
+  /// Whether the given fractions select no bytes at all.
+  static bool isEmptySelection(
+    double startFraction,
+    double endFraction,
+    int contentLength,
+  ) {
+    final bounds = resolveBounds(startFraction, endFraction, contentLength);
+    return bounds != null && bounds.endExclusive <= bounds.start;
+  }
+
+  /// Resolves slider fractions to absolute byte offsets, or null when the
+  /// content length is unknown.
+  static ({int start, int endExclusive})? resolveBounds(
+    double startFraction,
+    double endFraction,
+    int contentLength,
+  ) {
+    if (contentLength <= 0) return null;
+    return (
+      start: (startFraction.clamp(0.0, 1.0) * contentLength).floor(),
+      endExclusive: (endFraction.clamp(0.0, 1.0) * contentLength).round(),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is ByteRange && other.start == start && other.end == end;
+
+  @override
+  int get hashCode => Object.hash(start, end);
+
+  @override
+  String toString() => 'bytes $start-$end';
+}
+
 /// A single benchmark run's inputs.
 class BenchmarkConfig {
   const BenchmarkConfig({
@@ -38,6 +108,7 @@ class BenchmarkConfig {
     required this.totalRequests,
     required this.type,
     required this.clientOption,
+    this.range,
   });
 
   /// The remote URL under test.
@@ -53,6 +124,9 @@ class BenchmarkConfig {
 
   /// Which [HttpClientBuilder] the workers use.
   final HttpClientOption clientOption;
+
+  /// Byte range each request asks for, or null to request the full response.
+  final ByteRange? range;
 
   /// Splits [totalRequests] across [concurrency] workers as evenly as possible.
   ///

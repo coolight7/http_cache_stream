@@ -6,8 +6,9 @@ import 'package:benchmarker/src/benchmark/worker_pool.dart';
 import 'package:benchmarker/src/benchmark/worker_protocol.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Serves a fixed payload with a correct `Content-Length`, plus endpoints for a
-/// chunked (length-less) response and an error status.
+/// Serves a fixed payload with a correct `Content-Length`, honoring single
+/// byte ranges, plus endpoints for a chunked (length-less) response and an
+/// error status.
 Future<HttpServer> _startOrigin(List<int> payload) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   unawaited(() async {
@@ -19,13 +20,41 @@ Future<HttpServer> _startOrigin(List<int> payload) async {
         case '/error':
           request.response.statusCode = HttpStatus.notFound;
         default:
-          request.response.headers.contentLength = payload.length;
-          request.response.add(payload);
+          final range = _parseRange(
+            request.headers.value(HttpHeaders.rangeHeader),
+            payload.length,
+          );
+          if (range == null) {
+            request.response.headers.contentLength = payload.length;
+            request.response.add(payload);
+          } else {
+            request.response.statusCode = HttpStatus.partialContent;
+            request.response.headers.contentLength =
+                range.end - range.start + 1;
+            request.response.headers.set(
+              HttpHeaders.contentRangeHeader,
+              'bytes ${range.start}-${range.end}/${payload.length}',
+            );
+            request.response.add(payload.sublist(range.start, range.end + 1));
+          }
       }
       await request.response.close();
     }
   }());
   return server;
+}
+
+/// Parses a single `bytes=start-end` range against a known total length.
+({int start, int end})? _parseRange(String? header, int totalLength) {
+  if (header == null || !header.startsWith('bytes=')) return null;
+  final parts = header.substring('bytes='.length).split('-');
+  if (parts.length != 2) return null;
+  final start = int.tryParse(parts[0]);
+  final end = int.tryParse(parts[1]) ?? totalLength - 1;
+  if (start == null || start < 0 || end >= totalLength || end < start) {
+    return null;
+  }
+  return (start: start, end: end);
 }
 
 void main() {
@@ -47,7 +76,11 @@ void main() {
   });
 
   /// Dispatches [perWorker] requests to each worker and collects every result.
-  Future<List<RequestResult>> run(String path, List<int> perWorker) async {
+  Future<List<RequestResult>> run(
+    String path,
+    List<int> perWorker, {
+    String? rangeHeader,
+  }) async {
     final results = <RequestResult>[];
     final done = <int>{};
     final completer = Completer<void>();
@@ -77,6 +110,7 @@ void main() {
           url: 'http://${origin.address.host}:${origin.port}$path',
           requestCount: perWorker[id],
           firstSequence: sequence,
+          rangeHeader: rangeHeader,
         ),
       );
       sequence += perWorker[id];
@@ -125,6 +159,22 @@ void main() {
     expect(results, hasLength(1));
     expect(results.single.outcome, RequestOutcome.httpError);
     expect(results.single.statusCode, HttpStatus.notFound);
+  });
+
+  test('a range header yields a verified partial response', () async {
+    final results = await run(
+      '/payload.bin',
+      [2, 1],
+      rangeHeader: 'bytes=1024-5119',
+    );
+
+    expect(results, hasLength(3));
+    for (final result in results) {
+      expect(result.statusCode, HttpStatus.partialContent);
+      expect(result.outcome, RequestOutcome.success);
+      expect(result.bytesReceived, 4096);
+      expect(result.contentLength, 4096);
+    }
   });
 
   test('the pool reuses its isolates across jobs', () async {

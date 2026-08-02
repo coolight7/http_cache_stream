@@ -7,6 +7,19 @@ import 'package:benchmarker/src/benchmark/http_client_builder.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http_cache_stream/http_cache_stream.dart';
 
+/// Parses a single `bytes=start-end` range against a known total length.
+({int start, int end})? _parseRange(String? header, int totalLength) {
+  if (header == null || !header.startsWith('bytes=')) return null;
+  final parts = header.substring('bytes='.length).split('-');
+  if (parts.length != 2) return null;
+  final start = int.tryParse(parts[0]);
+  final end = int.tryParse(parts[1]) ?? totalLength - 1;
+  if (start == null || start < 0 || end >= totalLength || end < start) {
+    return null;
+  }
+  return (start: start, end: end);
+}
+
 /// End-to-end coverage of a benchmark run: a real origin server, a real
 /// [HttpCacheManager] with its local cache server, and real worker isolates.
 void main() {
@@ -23,9 +36,23 @@ void main() {
     unawaited(() async {
       await for (final request in origin) {
         originRequests++;
-        request.response.headers.contentLength = payload.length;
         request.response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
-        request.response.add(payload);
+        final range = _parseRange(
+          request.headers.value(HttpHeaders.rangeHeader),
+          payload.length,
+        );
+        if (range == null) {
+          request.response.headers.contentLength = payload.length;
+          request.response.add(payload);
+        } else {
+          request.response.statusCode = HttpStatus.partialContent;
+          request.response.headers.contentLength = range.end - range.start + 1;
+          request.response.headers.set(
+            HttpHeaders.contentRangeHeader,
+            'bytes ${range.start}-${range.end}/${payload.length}',
+          );
+          request.response.add(payload.sublist(range.start, range.end + 1));
+        }
         await request.response.close();
       }
     }());
@@ -50,13 +77,19 @@ void main() {
     }
   });
 
-  BenchmarkConfig configFor(BenchmarkType type, {int workers = 2, int total = 4}) {
+  BenchmarkConfig configFor(
+    BenchmarkType type, {
+    int workers = 2,
+    int total = 4,
+    ByteRange? range,
+  }) {
     return BenchmarkConfig(
       sourceUrl: sourceUrl,
       concurrency: workers,
       totalRequests: total,
       type: type,
       clientOption: kHttpClientOptions.first,
+      range: range,
     );
   }
 
@@ -117,6 +150,45 @@ void main() {
     expect(
       controller.logs.map((entry) => entry.message),
       contains('Cache wiped.'),
+    );
+  });
+
+  test('direct run requests only the selected byte range', () async {
+    const range = ByteRange(1024, 5119);
+    await controller.start(configFor(BenchmarkType.direct, range: range));
+
+    expect(controller.phase, BenchmarkPhase.finished);
+    final stats = controller.stats!;
+    expect(stats.completed, 4);
+    expect(stats.succeeded, 4);
+    expect(stats.errorCount, 0);
+    expect(stats.totalBytes, 4 * range.length);
+    expect(stats.avgBytesPerRequest, range.length.toDouble());
+    expect(
+      controller.logs.map((entry) => entry.message),
+      contains(contains('Range bytes=1024-5119')),
+    );
+  });
+
+  test('pre-cached run serves the selected byte range from the cache',
+      () async {
+    const range = ByteRange(4096, 8191);
+    await controller.start(configFor(BenchmarkType.preCached, range: range));
+
+    expect(controller.phase, BenchmarkPhase.finished);
+    expect(controller.cacheState!.isComplete, isTrue);
+
+    final stats = controller.stats!;
+    expect(stats.completed, 4);
+    expect(stats.succeeded, 4);
+    expect(stats.errorCount, 0);
+    expect(stats.totalBytes, 4 * range.length);
+    // Only the pre-cache download reached the origin.
+    expect(originRequests, 1);
+    // A 206 was returned, so no "range ignored" warning was logged.
+    expect(
+      controller.logs.map((entry) => entry.message),
+      isNot(contains(contains('may be ignoring the requested range'))),
     );
   });
 

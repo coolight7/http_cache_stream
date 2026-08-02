@@ -99,7 +99,11 @@ class _BenchmarkWorker {
     try {
       for (var i = 0; i < job.requestCount; i++) {
         if (_cancelRequested) break;
-        final result = await _executeRequest(uri, job.firstSequence + i);
+        final result = await _executeRequest(
+          uri,
+          job.firstSequence + i,
+          job.rangeHeader,
+        );
         if (result == null) break; // Abandoned mid-response by a cancel.
         _pending.add(result);
         if (_pending.length >= _maxBatchSize ||
@@ -122,14 +126,22 @@ class _BenchmarkWorker {
   ///
   /// Returns null if the request was abandoned by a cancel before the response
   /// was fully read; such a request is not a measurement and is not reported.
-  Future<RequestResult?> _executeRequest(Uri uri, int sequence) async {
+  Future<RequestResult?> _executeRequest(
+    Uri uri,
+    int sequence,
+    String? rangeHeader,
+  ) async {
     final stopwatch = Stopwatch()..start();
     int? headerMicros;
     int? firstByteMicros;
     var bytesReceived = 0;
 
     try {
-      final response = await _client.send(http.Request('GET', uri));
+      final request = http.Request('GET', uri);
+      if (rangeHeader != null) {
+        request.headers['range'] = rangeHeader;
+      }
+      final response = await _client.send(request);
       headerMicros = stopwatch.elapsedMicroseconds;
 
       await for (final chunk in response.stream) {
