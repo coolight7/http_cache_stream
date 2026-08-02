@@ -29,21 +29,33 @@ respawned when the concurrency or the client implementation changes.
 | Source URL | The remote URL under test. |
 | Concurrency | Number of worker isolates. |
 | Total requests | Requests issued in total, divided evenly between the workers (the remainder goes to the lowest-numbered workers). |
-| Byte range | Portion of the source each request asks for, via a range slider. |
+| Request range | Which bytes each request asks for: a mode plus a slider bounding the region. |
 
-### Partial responses
+### Request range
 
-The range slider needs the source's size to express a selection in bytes, so
-**Fetch length** probes the URL first — a `HEAD`, falling back to a one-byte
-range request, which also reveals whether the server honors `Range` at all. The
-probed length is dropped as soon as the URL is edited, so a stale size can never
-be applied to a different source.
+| Mode | Behavior |
+| --- | --- |
+| **Full response** | No `Range` header; every request downloads the whole source. |
+| **Fixed range** | Every request asks for the same slider selection. |
+| **Sequential windows** | The selection is divided between the requests: request *n* asks for the *n*-th window, each the same size, one starting where the last ended. |
+
+Sequential windows are sized by the total request count — `window = ⌈range ÷
+requests⌉` — so the run walks the selected region exactly once. The final window
+slides back to end on the last byte, which keeps every request the same size at
+the cost of a small overlap when the division isn't even. Windows are assigned
+by each request's global sequence number, so workers cover consecutive blocks of
+the region concurrently.
+
+Both partial modes need the source's size to express a selection in bytes, so
+they stay disabled until **Fetch length** probes the URL — a `HEAD`, falling
+back to a one-byte range request, which also reveals whether the server honors
+`Range` at all. The probed length is dropped as soon as the URL is edited, so a
+stale size can never be applied to a different source.
 
 Each request then carries `Range: bytes=<start>-<end>`, and the response's byte
 count is verified against its `Content-Length` exactly as a full response is. A
-selection covering the whole source sends no `Range` header, and a run whose
-range requests come back as anything other than `206 Partial Content` logs a
-warning once — the server is likely ignoring the range.
+run whose range requests come back as anything other than `206 Partial Content`
+logs a warning once — the server is likely ignoring the range.
 
 ### Run types
 

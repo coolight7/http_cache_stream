@@ -106,11 +106,19 @@ class BenchmarkController extends ChangeNotifier {
       '${config.totalRequests} requests · ${config.concurrency} workers · '
       '${config.clientOption.label}',
     );
-    if (config.range case final range?) {
-      _log(
-        'Partial responses: Range ${range.header} '
-        '(${formatBytes(range.length)} per request).',
-      );
+    if (config.rangePlan case final plan?) {
+      if (plan.isSequential) {
+        _log(
+          'Sequential windows: ${config.totalRequests} × '
+          '${formatBytes(plan.windowSize)} across bytes '
+          '${plan.start}-${plan.end}; each request asks for the next window.',
+        );
+      } else {
+        _log(
+          'Partial responses: Range bytes=${plan.start}-${plan.end} '
+          '(${formatBytes(plan.length)} per request).',
+        );
+      }
     }
 
     _setPhase(BenchmarkPhase.preparing);
@@ -275,7 +283,7 @@ class BenchmarkController extends ChangeNotifier {
           url: target.toString(),
           requestCount: count,
           firstSequence: sequence,
-          rangeHeader: config.range?.header,
+          rangePlan: config.rangePlan,
         ),
       );
       sequence += count;
@@ -376,7 +384,7 @@ class BenchmarkController extends ChangeNotifier {
   /// Logs problems without flooding the log: the first occurrence of each
   /// distinct problem is logged, then only at power-of-ten milestones.
   void _noteResult(RequestResult result) {
-    if (_config?.range != null &&
+    if (_config?.rangePlan != null &&
         !_warnedRangeIgnored &&
         result.statusCode != null &&
         result.statusCode != HttpStatus.partialContent) {

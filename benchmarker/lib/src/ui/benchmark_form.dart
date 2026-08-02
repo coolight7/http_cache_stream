@@ -21,8 +21,10 @@ class BenchmarkForm extends ChangeNotifier {
     int totalRequests = 40,
     BenchmarkType type = BenchmarkType.preCached,
     HttpClientOption? clientOption,
+    RangeMode rangeMode = RangeMode.full,
     this.probe = probeSource,
-  })  : urlController = TextEditingController(text: url),
+  })  : _rangeMode = rangeMode,
+        urlController = TextEditingController(text: url),
         concurrencyController =
             TextEditingController(text: concurrency.toString()),
         requestsController =
@@ -46,6 +48,7 @@ class BenchmarkForm extends ChangeNotifier {
   HttpClientOption _clientOption;
   String? _error;
 
+  RangeMode _rangeMode;
   RangeValues _rangeFraction = const RangeValues(0, 1);
   ProbeStatus _probeStatus = ProbeStatus.idle;
   String? _probeError;
@@ -125,6 +128,7 @@ class BenchmarkForm extends ChangeNotifier {
       _probeStatus = ProbeStatus.failed;
       _probeError = '$e';
     }
+    if (!canSelectRange) _rangeMode = RangeMode.full;
     notifyListeners();
   }
 
@@ -138,12 +142,26 @@ class BenchmarkForm extends ChangeNotifier {
     _probeStatus = ProbeStatus.idle;
     _probeError = null;
     _rangeFraction = const RangeValues(0, 1);
+    _rangeMode = RangeMode.full; // Range modes need a known content length.
     notifyListeners();
   }
+
+  /// Total requests currently entered, if the field holds a number.
+  int? get plannedRequestCount => int.tryParse(requestsController.text.trim());
 
   // ---------------------------------------------------------------------------
   // Range selection
   // ---------------------------------------------------------------------------
+
+  /// How each request's `Range` header is chosen.
+  RangeMode get rangeMode => _rangeMode;
+
+  set rangeMode(RangeMode value) {
+    if (_rangeMode == value) return;
+    if (value.needsContentLength && !canSelectRange) return;
+    _rangeMode = value;
+    notifyListeners();
+  }
 
   /// Selected portion of the source, as fractions from 0 to 1.
   RangeValues get rangeFraction => _rangeFraction;
@@ -156,7 +174,8 @@ class BenchmarkForm extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// The byte range requests should ask for, or null for the full response.
+  /// The region of the source requests are taken from, or null when the source
+  /// length is unknown or the selection is empty.
   ByteRange? selectedRange() {
     final length = _contentLength;
     if (length == null || length <= 0) return null;
@@ -178,8 +197,23 @@ class BenchmarkForm extends ChangeNotifier {
     );
   }
 
-  /// Whether the whole source is requested, so no `Range` header is sent.
-  bool get isFullRange => !isEmptySelection && selectedRange() == null;
+  /// Whether the selection spans the whole source.
+  bool get isFullRange => selectedRange()?.length == _contentLength;
+
+  /// The plan the current inputs describe, or null when full responses are
+  /// requested or no valid range is selected.
+  ///
+  /// [requestCount] sets how finely [RangeMode.sequential] divides the range.
+  RangePlan? buildRangePlan(int requestCount) {
+    if (_rangeMode == RangeMode.full || requestCount < 1) return null;
+    final range = selectedRange();
+    if (range == null) return null;
+    return switch (_rangeMode) {
+      RangeMode.full => null,
+      RangeMode.fixed => RangePlan.fixed(range),
+      RangeMode.sequential => RangePlan.sequential(range, requestCount),
+    };
+  }
 
   // ---------------------------------------------------------------------------
   // Config
@@ -197,8 +231,7 @@ class BenchmarkForm extends ChangeNotifier {
       concurrency: concurrency,
       totalRequests: totalRequests,
     );
-    final range = error == null ? selectedRange() : null;
-    if (error == null && isEmptySelection) {
+    if (error == null && _rangeMode.needsContentLength && isEmptySelection) {
       error = 'The selected range is empty.';
     }
 
@@ -214,7 +247,7 @@ class BenchmarkForm extends ChangeNotifier {
       totalRequests: totalRequests!,
       type: _type,
       clientOption: _clientOption,
-      range: range,
+      rangePlan: buildRangePlan(totalRequests),
     );
   }
 

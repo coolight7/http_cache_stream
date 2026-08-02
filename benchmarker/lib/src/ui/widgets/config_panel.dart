@@ -195,9 +195,19 @@ class _RangeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The sequential window size follows the total request count, so this
+    // section also rebuilds when that field changes.
+    return ListenableBuilder(
+      listenable: form.requestsController,
+      builder: (context, _) => _build(context),
+    );
+  }
+
+  Widget _build(BuildContext context) {
     final theme = Theme.of(context);
     final contentLength = form.contentLength;
-    final enabled = !isBusy && form.canSelectRange;
+    final enabled =
+        !isBusy && form.canSelectRange && form.rangeMode.needsContentLength;
     final bounds = contentLength == null
         ? null
         : ByteRange.resolveBounds(
@@ -206,21 +216,6 @@ class _RangeSelector extends StatelessWidget {
             contentLength,
           );
 
-    final String detail;
-    if (contentLength == null) {
-      detail = 'Fetch the source length to request partial responses.';
-    } else if (form.isEmptySelection) {
-      detail = 'Empty selection — widen the range.';
-    } else if (form.isFullRange) {
-      detail = 'Full response · ${formatBytes(contentLength)} '
-          '($contentLength bytes), no Range header';
-    } else {
-      final range = form.selectedRange()!;
-      detail = 'Range ${range.header} · ${formatBytes(range.length)} '
-          '(${range.length} bytes, '
-          '${formatPercent(range.length / contentLength)} of source)';
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -228,7 +223,7 @@ class _RangeSelector extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                'Requested byte range',
+                'Request range',
                 style: theme.textTheme.labelLarge,
               ),
             ),
@@ -251,6 +246,28 @@ class _RangeSelector extends StatelessWidget {
               ),
           ],
         ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<RangeMode>(
+              segments: [
+                for (final mode in RangeMode.values)
+                  ButtonSegment<RangeMode>(
+                    value: mode,
+                    label: Text(mode.label),
+                    // Byte ranges cannot be expressed until the size is known.
+                    enabled: !mode.needsContentLength || form.canSelectRange,
+                  ),
+              ],
+              selected: {form.rangeMode},
+              showSelectedIcon: false,
+              onSelectionChanged:
+                  isBusy ? null : (selection) => form.rangeMode = selection.first,
+            ),
+          ),
+        ),
         RangeSlider(
           values: form.rangeFraction,
           divisions: 200,
@@ -265,9 +282,9 @@ class _RangeSelector extends StatelessWidget {
           onChanged: enabled ? (values) => form.rangeFraction = values : null,
         ),
         Text(
-          detail,
+          _detail(contentLength),
           style: theme.textTheme.bodySmall?.copyWith(
-            color: form.isEmptySelection
+            color: form.rangeMode.needsContentLength && form.isEmptySelection
                 ? theme.colorScheme.error
                 : theme.colorScheme.onSurfaceVariant,
           ),
@@ -294,6 +311,37 @@ class _RangeSelector extends StatelessWidget {
           ),
       ],
     );
+  }
+
+  /// One line describing exactly what the workers will request.
+  String _detail(int? contentLength) {
+    if (form.rangeMode == RangeMode.full) {
+      final size =
+          contentLength == null ? '' : ' · ${formatBytes(contentLength)}';
+      return 'Full response$size, no Range header';
+    }
+    if (contentLength == null) {
+      return 'Fetch the source length to request partial responses.';
+    }
+    if (form.isEmptySelection) {
+      return 'Empty selection — widen the range.';
+    }
+
+    final range = form.selectedRange()!;
+    final share = formatPercent(range.length / contentLength);
+    if (form.rangeMode == RangeMode.fixed) {
+      return 'Every request: Range ${range.header} · '
+          '${formatBytes(range.length)} ($share of source)';
+    }
+
+    final requestCount = form.plannedRequestCount ?? 0;
+    final plan = form.buildRangePlan(requestCount);
+    if (plan == null) {
+      return 'Enter a total request count to size the windows.';
+    }
+    return '$requestCount windows × ${formatBytes(plan.windowSize)} '
+        '(${plan.windowSize} bytes) across bytes ${range.start}-${range.end} '
+        '· $share of source';
   }
 
   static String _thumbLabel(int? offset, int? contentLength, double fraction) {

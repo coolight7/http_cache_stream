@@ -99,10 +99,11 @@ class _BenchmarkWorker {
     try {
       for (var i = 0; i < job.requestCount; i++) {
         if (_cancelRequested) break;
+        final sequence = job.firstSequence + i;
         final result = await _executeRequest(
           uri,
-          job.firstSequence + i,
-          job.rangeHeader,
+          sequence,
+          job.rangePlan?.windowFor(sequence).header,
         );
         if (result == null) break; // Abandoned mid-response by a cancel.
         _pending.add(result);

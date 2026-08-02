@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:benchmarker/src/benchmark/benchmark_config.dart';
 import 'package:benchmarker/src/benchmark/http_client_builder.dart';
 import 'package:benchmarker/src/benchmark/worker_pool.dart';
 import 'package:benchmarker/src/benchmark/worker_protocol.dart';
@@ -9,10 +10,15 @@ import 'package:flutter_test/flutter_test.dart';
 /// Serves a fixed payload with a correct `Content-Length`, honoring single
 /// byte ranges, plus endpoints for a chunked (length-less) response and an
 /// error status.
-Future<HttpServer> _startOrigin(List<int> payload) async {
+Future<HttpServer> _startOrigin(
+  List<int> payload,
+  List<String> receivedRanges,
+) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   unawaited(() async {
     await for (final request in server) {
+      final rangeHeader = request.headers.value(HttpHeaders.rangeHeader);
+      if (rangeHeader != null) receivedRanges.add(rangeHeader);
       switch (request.uri.path) {
         case '/chunked':
           request.response.headers.chunkedTransferEncoding = true;
@@ -20,10 +26,7 @@ Future<HttpServer> _startOrigin(List<int> payload) async {
         case '/error':
           request.response.statusCode = HttpStatus.notFound;
         default:
-          final range = _parseRange(
-            request.headers.value(HttpHeaders.rangeHeader),
-            payload.length,
-          );
+          final range = _parseRange(rangeHeader, payload.length);
           if (range == null) {
             request.response.headers.contentLength = payload.length;
             request.response.add(payload);
@@ -59,11 +62,13 @@ Future<HttpServer> _startOrigin(List<int> payload) async {
 
 void main() {
   final payload = List<int>.generate(64 * 1024, (index) => index % 256);
+  final receivedRanges = <String>[];
   late HttpServer origin;
   late WorkerPool pool;
 
   setUp(() async {
-    origin = await _startOrigin(payload);
+    receivedRanges.clear();
+    origin = await _startOrigin(payload, receivedRanges);
     pool = await WorkerPool.spawn(
       size: 2,
       clientOption: kHttpClientOptions.first,
@@ -79,7 +84,7 @@ void main() {
   Future<List<RequestResult>> run(
     String path,
     List<int> perWorker, {
-    String? rangeHeader,
+    RangePlan? rangePlan,
   }) async {
     final results = <RequestResult>[];
     final done = <int>{};
@@ -110,7 +115,7 @@ void main() {
           url: 'http://${origin.address.host}:${origin.port}$path',
           requestCount: perWorker[id],
           firstSequence: sequence,
-          rangeHeader: rangeHeader,
+          rangePlan: rangePlan,
         ),
       );
       sequence += perWorker[id];
@@ -161,11 +166,11 @@ void main() {
     expect(results.single.statusCode, HttpStatus.notFound);
   });
 
-  test('a range header yields a verified partial response', () async {
+  test('a fixed range plan yields a verified partial response', () async {
     final results = await run(
       '/payload.bin',
       [2, 1],
-      rangeHeader: 'bytes=1024-5119',
+      rangePlan: RangePlan.fixed(const ByteRange(1024, 5119)),
     );
 
     expect(results, hasLength(3));
@@ -175,6 +180,29 @@ void main() {
       expect(result.bytesReceived, 4096);
       expect(result.contentLength, 4096);
     }
+    expect(receivedRanges, everyElement('bytes=1024-5119'));
+  });
+
+  test('a sequential plan walks the range one window per request', () async {
+    // 8 KB across 4 requests: four back-to-back 2 KB windows.
+    final plan = RangePlan.sequential(const ByteRange(0, 8191), 4);
+    final results = await run('/payload.bin', [2, 2], rangePlan: plan);
+
+    expect(plan.windowSize, 2048);
+    expect(results, hasLength(4));
+    for (final result in results) {
+      expect(result.statusCode, HttpStatus.partialContent);
+      expect(result.outcome, RequestOutcome.success);
+      expect(result.bytesReceived, 2048);
+    }
+    // Each request asked for a distinct, contiguous window; the workers split
+    // the sequence between them.
+    expect(receivedRanges..sort(), [
+      'bytes=0-2047',
+      'bytes=2048-4095',
+      'bytes=4096-6143',
+      'bytes=6144-8191',
+    ]);
   });
 
   test('the pool reuses its isolates across jobs', () async {

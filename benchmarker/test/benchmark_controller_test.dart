@@ -29,18 +29,19 @@ void main() {
   late BenchmarkController controller;
   late Uri sourceUrl;
   var originRequests = 0;
+  final receivedRanges = <String>[];
 
   setUp(() async {
     originRequests = 0;
+    receivedRanges.clear();
     origin = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     unawaited(() async {
       await for (final request in origin) {
         originRequests++;
         request.response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
-        final range = _parseRange(
-          request.headers.value(HttpHeaders.rangeHeader),
-          payload.length,
-        );
+        final rangeHeader = request.headers.value(HttpHeaders.rangeHeader);
+        if (rangeHeader != null) receivedRanges.add(rangeHeader);
+        final range = _parseRange(rangeHeader, payload.length);
         if (range == null) {
           request.response.headers.contentLength = payload.length;
           request.response.add(payload);
@@ -81,7 +82,7 @@ void main() {
     BenchmarkType type, {
     int workers = 2,
     int total = 4,
-    ByteRange? range,
+    RangePlan? rangePlan,
   }) {
     return BenchmarkConfig(
       sourceUrl: sourceUrl,
@@ -89,7 +90,7 @@ void main() {
       totalRequests: total,
       type: type,
       clientOption: kHttpClientOptions.first,
-      range: range,
+      rangePlan: rangePlan,
     );
   }
 
@@ -155,7 +156,9 @@ void main() {
 
   test('direct run requests only the selected byte range', () async {
     const range = ByteRange(1024, 5119);
-    await controller.start(configFor(BenchmarkType.direct, range: range));
+    await controller.start(
+      configFor(BenchmarkType.direct, rangePlan: RangePlan.fixed(range)),
+    );
 
     expect(controller.phase, BenchmarkPhase.finished);
     final stats = controller.stats!;
@@ -173,7 +176,9 @@ void main() {
   test('pre-cached run serves the selected byte range from the cache',
       () async {
     const range = ByteRange(4096, 8191);
-    await controller.start(configFor(BenchmarkType.preCached, range: range));
+    await controller.start(
+      configFor(BenchmarkType.preCached, rangePlan: RangePlan.fixed(range)),
+    );
 
     expect(controller.phase, BenchmarkPhase.finished);
     expect(controller.cacheState!.isComplete, isTrue);
@@ -190,6 +195,47 @@ void main() {
       controller.logs.map((entry) => entry.message),
       isNot(contains(contains('may be ignoring the requested range'))),
     );
+  });
+
+  test('sequential windows walk the range once across all workers', () async {
+    // The whole payload divided between 8 requests on 2 workers.
+    final plan = RangePlan.sequential(ByteRange(0, payload.length - 1), 8);
+    await controller.start(
+      configFor(BenchmarkType.direct, total: 8, rangePlan: plan),
+    );
+
+    expect(controller.phase, BenchmarkPhase.finished);
+    final stats = controller.stats!;
+    expect(stats.completed, 8);
+    expect(stats.succeeded, 8);
+    expect(stats.errorCount, 0);
+    // Every window is the same size and together they cover the payload once.
+    expect(stats.totalBytes, payload.length);
+    expect(stats.avgBytesPerRequest, plan.windowSize.toDouble());
+    expect(receivedRanges..sort(), [
+      for (var sequence = 0; sequence < 8; sequence++)
+        plan.windowFor(sequence).header,
+    ]..sort());
+    expect(
+      controller.logs.map((entry) => entry.message),
+      contains(contains('Sequential windows: 8 ×')),
+    );
+  });
+
+  test('sequential windows are served from the cache', () async {
+    final plan = RangePlan.sequential(ByteRange(0, payload.length - 1), 4);
+    await controller.start(
+      configFor(BenchmarkType.preCached, total: 4, rangePlan: plan),
+    );
+
+    expect(controller.phase, BenchmarkPhase.finished);
+    final stats = controller.stats!;
+    expect(stats.completed, 4);
+    expect(stats.succeeded, 4);
+    expect(stats.errorCount, 0);
+    expect(stats.totalBytes, payload.length);
+    // Only the pre-cache download reached the origin.
+    expect(originRequests, 1);
   });
 
   test('the worker pool is reused between runs with the same settings',

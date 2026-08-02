@@ -1,5 +1,6 @@
 import 'dart:isolate';
 
+import 'benchmark_config.dart';
 import 'http_client_builder.dart';
 
 /// The spawn message handed to a worker isolate.
@@ -30,7 +31,7 @@ class RunJobCommand extends WorkerCommand {
     required this.url,
     required this.requestCount,
     required this.firstSequence,
-    this.rangeHeader,
+    this.rangePlan,
   });
 
   final int jobId;
@@ -43,9 +44,12 @@ class RunJobCommand extends WorkerCommand {
   /// Global index of this job's first request, used to label results.
   final int firstSequence;
 
-  /// Value for the `Range` header, e.g. `bytes=0-1023`. Null requests the full
-  /// response.
-  final String? rangeHeader;
+  /// Which bytes each request asks for. Null requests full responses.
+  ///
+  /// The worker resolves the window from the request's global sequence number,
+  /// so consecutive requests — across workers as well as within one — ask for
+  /// consecutive windows.
+  final RangePlan? rangePlan;
 }
 
 /// Stop the active job early. The worker still reports a [JobDoneEvent].
