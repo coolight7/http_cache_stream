@@ -1,17 +1,64 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../benchmark/benchmark_config.dart';
+import '../../benchmark/benchmark_report.dart';
 import '../../benchmark/benchmark_stats.dart';
 import '../../util/formatting.dart';
 import 'section_card.dart';
 
+/// Clipboard formats offered by the copy button.
+enum _CopyFormat { json, text }
+
 /// Aggregated results of the current or most recent run.
 class StatsPanel extends StatelessWidget {
-  const StatsPanel({super.key, required this.stats, required this.status});
+  const StatsPanel({
+    super.key,
+    required this.stats,
+    required this.status,
+    this.config,
+    this.targetUrl,
+  });
 
   final BenchmarkStats? stats;
 
   /// Short status line shown next to the title, e.g. `Running`.
   final String status;
+
+  /// Inputs of the run the stats belong to, copied alongside them.
+  final BenchmarkConfig? config;
+
+  /// URL the workers hit: the cache URL, or the source URL for direct runs.
+  final Uri? targetUrl;
+
+  void _copy(BuildContext context, _CopyFormat format) {
+    final stats = this.stats;
+    if (stats == null) return;
+    final report = switch (format) {
+      _CopyFormat.json => buildJsonReport(
+          stats: stats,
+          config: config,
+          targetUrl: targetUrl,
+          status: status,
+        ),
+      _CopyFormat.text => buildTextReport(
+          stats: stats,
+          config: config,
+          targetUrl: targetUrl,
+          status: status,
+        ),
+    };
+    Clipboard.setData(ClipboardData(text: report));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          format == _CopyFormat.json
+              ? 'Statistics copied as JSON.'
+              : 'Statistics copied as text.',
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +68,22 @@ class StatsPanel extends StatelessWidget {
     return SectionCard(
       title: 'Statistics',
       subtitle: status,
+      trailing: PopupMenuButton<_CopyFormat>(
+        enabled: stats != null,
+        tooltip: 'Copy statistics',
+        icon: const Icon(Icons.copy_all_outlined),
+        onSelected: (format) => _copy(context, format),
+        itemBuilder: (context) => const [
+          PopupMenuItem<_CopyFormat>(
+            value: _CopyFormat.text,
+            child: Text('Copy as text'),
+          ),
+          PopupMenuItem<_CopyFormat>(
+            value: _CopyFormat.json,
+            child: Text('Copy as JSON'),
+          ),
+        ],
+      ),
       child: stats == null
           ? Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),

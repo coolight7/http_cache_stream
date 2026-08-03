@@ -90,7 +90,12 @@ class _BenchmarkPageState extends State<BenchmarkPage> {
                   cacheUrl: _controller.targetUrl,
                 )
               : null;
-          final stats = StatsPanel(stats: _controller.stats, status: _status);
+          final stats = StatsPanel(
+            stats: _controller.stats,
+            status: _status,
+            config: _controller.config,
+            targetUrl: _controller.targetUrl,
+          );
           final log = LogPanel(
             logs: _controller.logs,
             onClear: _controller.clearLogs,

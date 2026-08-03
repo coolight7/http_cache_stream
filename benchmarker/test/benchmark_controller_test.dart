@@ -169,7 +169,7 @@ void main() {
     expect(stats.avgBytesPerRequest, range.length.toDouble());
     expect(
       controller.logs.map((entry) => entry.message),
-      contains(contains('Range bytes=1024-5119')),
+      contains(contains('Fixed range bytes=1024-5119')),
     );
   });
 

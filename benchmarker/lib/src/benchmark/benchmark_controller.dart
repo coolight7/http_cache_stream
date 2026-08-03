@@ -7,6 +7,7 @@ import 'package:http_cache_stream/http_cache_stream.dart';
 import '../util/formatting.dart';
 import 'benchmark_config.dart';
 import 'benchmark_log.dart';
+import 'benchmark_report.dart';
 import 'benchmark_stats.dart';
 import 'worker_pool.dart';
 import 'worker_protocol.dart';
@@ -107,18 +108,10 @@ class BenchmarkController extends ChangeNotifier {
       '${config.clientOption.label}',
     );
     if (config.rangePlan case final plan?) {
-      if (plan.isSequential) {
-        _log(
-          'Sequential windows: ${config.totalRequests} × '
-          '${formatBytes(plan.windowSize)} across bytes '
-          '${plan.start}-${plan.end}; each request asks for the next window.',
-        );
-      } else {
-        _log(
-          'Partial responses: Range bytes=${plan.start}-${plan.end} '
-          '(${formatBytes(plan.length)} per request).',
-        );
-      }
+      _log(
+        '${describeRangePlan(config)}'
+        '${plan.isSequential ? '; each request asks for the next window.' : '.'}',
+      );
     }
 
     _setPhase(BenchmarkPhase.preparing);

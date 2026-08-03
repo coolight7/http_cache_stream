@@ -88,6 +88,11 @@ roughly four times a second:
 Every response's received byte count is checked against its `Content-Length`; a
 mismatch is reported as a problem rather than a success.
 
+The copy button at the top right of the statistics panel puts the whole run on
+the clipboard — source URL, target URL, cache type, request range, client and
+concurrency alongside the numbers — as either an aligned plain-text summary or
+JSON for feeding into other tooling.
+
 For cache-server runs, the page also shows live download progress
 (`x / y bytes`, percentage) taken from `HttpCacheStream.cacheStateStream`, and
 errors emitted by that stream are written to the log panel along with the run's
@@ -101,6 +106,7 @@ lib/
   src/benchmark/
     benchmark_config.dart                inputs, run types, request distribution
     benchmark_controller.dart            run orchestration and aggregation
+    benchmark_report.dart                clipboard reports (text and JSON)
     benchmark_stats.dart                 timing/percentile accumulation
     benchmark_worker.dart                worker isolate entry point
     http_client_builder.dart             selectable http client implementations
