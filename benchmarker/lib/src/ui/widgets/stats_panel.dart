@@ -1,90 +1,153 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../benchmark/benchmark_config.dart';
 import '../../benchmark/benchmark_report.dart';
+import '../../benchmark/benchmark_result.dart';
 import '../../benchmark/benchmark_stats.dart';
 import '../../util/formatting.dart';
 import 'section_card.dart';
 
 /// Clipboard formats offered by the copy button.
-enum _CopyFormat { json, text }
+enum _CopyFormat { json, text, allJson }
 
-/// Aggregated results of the current or most recent run.
+/// Options offered by the clear button.
+enum _ClearAction { current, all }
+
+/// Aggregated results of the selected run, with the session's past runs behind
+/// a dropdown.
 class StatsPanel extends StatelessWidget {
   const StatsPanel({
     super.key,
-    required this.stats,
+    required this.result,
     required this.status,
-    this.config,
-    this.targetUrl,
+    this.history = const [],
+    this.onSelect,
+    this.onDelete,
+    this.onClearAll,
   });
 
-  final BenchmarkStats? stats;
+  /// The run on show: the one in flight, or a past one picked from [history].
+  final BenchmarkResult? result;
 
-  /// Short status line shown next to the title, e.g. `Running`.
+  /// Short status line shown when there is no result yet, e.g. `Idle`.
   final String status;
 
-  /// Inputs of the run the stats belong to, copied alongside them.
-  final BenchmarkConfig? config;
+  /// Every completed run of this session, oldest first.
+  final List<BenchmarkResult> history;
 
-  /// URL the workers hit: the cache URL, or the source URL for direct runs.
-  final Uri? targetUrl;
+  /// Called with the id of the run to show.
+  final ValueChanged<int>? onSelect;
+
+  /// Called with the id of the run to drop from [history].
+  final ValueChanged<int>? onDelete;
+
+  /// Called to drop every run from [history].
+  final VoidCallback? onClearAll;
+
+  /// Whether the run on show has already been recorded, and so can be deleted.
+  bool get _isRecorded {
+    final result = this.result;
+    return result != null && history.any((entry) => entry.id == result.id);
+  }
 
   void _copy(BuildContext context, _CopyFormat format) {
-    final stats = this.stats;
-    if (stats == null) return;
-    final report = switch (format) {
-      _CopyFormat.json => buildJsonReport(
-          stats: stats,
-          config: config,
-          targetUrl: targetUrl,
-          status: status,
-        ),
-      _CopyFormat.text => buildTextReport(
-          stats: stats,
-          config: config,
-          targetUrl: targetUrl,
-          status: status,
-        ),
-    };
+    final result = this.result;
+    final String report;
+    final String message;
+    switch (format) {
+      case _CopyFormat.text:
+        if (result == null) return;
+        report = buildTextReport(result);
+        message = 'Statistics copied as text.';
+      case _CopyFormat.json:
+        if (result == null) return;
+        report = buildJsonReport(result);
+        message = 'Statistics copied as JSON.';
+      case _CopyFormat.allJson:
+        if (history.isEmpty) return;
+        report = buildJsonReportList(history);
+        message = '${history.length} result(s) copied as a JSON list.';
+    }
     Clipboard.setData(ClipboardData(text: report));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          format == _CopyFormat.json
-              ? 'Statistics copied as JSON.'
-              : 'Statistics copied as text.',
-        ),
-      ),
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _clear(BuildContext context, _ClearAction action) {
+    final String message;
+    switch (action) {
+      case _ClearAction.current:
+        final result = this.result;
+        if (result == null || !_isRecorded) return;
+        onDelete?.call(result.id);
+        message = 'Result #${result.id} deleted.';
+      case _ClearAction.all:
+        if (history.isEmpty) return;
+        message = '${history.length} result(s) cleared.';
+        onClearAll?.call();
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final stats = this.stats;
+    final result = this.result;
+    final stats = result?.stats;
 
     return SectionCard(
       title: 'Statistics',
-      subtitle: status,
-      trailing: PopupMenuButton<_CopyFormat>(
-        enabled: stats != null,
-        tooltip: 'Copy statistics',
-        icon: const Icon(Icons.copy_all_outlined),
-        onSelected: (format) => _copy(context, format),
-        itemBuilder: (context) => const [
-          PopupMenuItem<_CopyFormat>(
-            value: _CopyFormat.text,
-            child: Text('Copy as text'),
+      subtitle: result == null ? status : result.status,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PopupMenuButton<_CopyFormat>(
+            enabled: result != null || history.isNotEmpty,
+            tooltip: 'Copy statistics',
+            icon: const Icon(Icons.copy_all_outlined),
+            onSelected: (format) => _copy(context, format),
+            itemBuilder: (context) => [
+              PopupMenuItem<_CopyFormat>(
+                value: _CopyFormat.text,
+                enabled: result != null,
+                child: const Text('Copy as text'),
+              ),
+              PopupMenuItem<_CopyFormat>(
+                value: _CopyFormat.json,
+                enabled: result != null,
+                child: const Text('Copy as JSON'),
+              ),
+              PopupMenuItem<_CopyFormat>(
+                value: _CopyFormat.allJson,
+                enabled: history.isNotEmpty,
+                child: Text('Export all results as JSON (${history.length})'),
+              ),
+            ],
           ),
-          PopupMenuItem<_CopyFormat>(
-            value: _CopyFormat.json,
-            child: Text('Copy as JSON'),
+          PopupMenuButton<_ClearAction>(
+            enabled: history.isNotEmpty,
+            tooltip: 'Clear results',
+            icon: const Icon(Icons.delete_outline),
+            onSelected: (action) => _clear(context, action),
+            itemBuilder: (context) => [
+              PopupMenuItem<_ClearAction>(
+                value: _ClearAction.current,
+                enabled: _isRecorded,
+                child: const Text('Delete current result'),
+              ),
+              PopupMenuItem<_ClearAction>(
+                value: _ClearAction.all,
+                enabled: history.isNotEmpty,
+                child: const Text('Clear all results'),
+              ),
+            ],
           ),
         ],
       ),
-      child: stats == null
+      child: result == null || stats == null
           ? Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Text(
@@ -97,6 +160,14 @@ class StatsPanel extends StatelessWidget {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                _ResultSelector(
+                  result: result,
+                  history: history,
+                  onSelect: onSelect,
+                ),
+                const SizedBox(height: 12),
+                _RunMeta(result: result),
+                const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
@@ -112,6 +183,122 @@ class StatsPanel extends StatelessWidget {
                 _OutcomeChips(stats: stats),
               ],
             ),
+    );
+  }
+}
+
+/// Dropdown listing the session's runs, most recent first, so a past result can
+/// be brought back into the panel.
+class _ResultSelector extends StatelessWidget {
+  const _ResultSelector({
+    required this.result,
+    required this.history,
+    this.onSelect,
+  });
+
+  final BenchmarkResult result;
+  final List<BenchmarkResult> history;
+  final ValueChanged<int>? onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    // A run in flight is not recorded yet, so it is listed on top of the
+    // history rather than taken from it.
+    final entries = <BenchmarkResult>[
+      if (!history.any((entry) => entry.id == result.id)) result,
+      ...history.reversed,
+    ];
+
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: 'Result',
+        helperText: entries.length == 1
+            ? 'Completed runs are kept here for this session.'
+            : '${entries.length} runs this session',
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: result.id,
+          isExpanded: true,
+          isDense: true,
+          onChanged: onSelect == null || entries.length < 2
+              ? null
+              : (id) {
+                  if (id != null) onSelect!(id);
+                },
+          selectedItemBuilder: (context) => [
+            for (final entry in entries)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(entry.label, overflow: TextOverflow.ellipsis),
+              ),
+          ],
+          items: [
+            for (final entry in entries)
+              DropdownMenuItem<int>(
+                value: entry.id,
+                child: _ResultEntry(result: entry),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Two-line description of a run inside the dropdown.
+class _ResultEntry extends StatelessWidget {
+  const _ResultEntry({required this.result});
+
+  final BenchmarkResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(result.label, overflow: TextOverflow.ellipsis),
+        Text(
+          result.detail,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// When the run ran, and in which build mode.
+class _RunMeta extends StatelessWidget {
+  const _RunMeta({required this.result});
+
+  final BenchmarkResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ended = result.endedAt;
+    return DefaultTextStyle.merge(
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 4,
+        children: [
+          Text('${result.mode.label} build'),
+          Text('Started ${formatTimestamp(result.startedAt)}'),
+          if (ended != null) Text('Ended ${formatTimestamp(ended)}'),
+          if (result.wallDuration case final duration?)
+            Text('Wall clock ${formatDuration(duration)}'),
+        ],
+      ),
     );
   }
 }

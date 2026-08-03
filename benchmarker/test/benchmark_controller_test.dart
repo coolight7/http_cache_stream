@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:benchmarker/src/benchmark/benchmark_config.dart';
 import 'package:benchmarker/src/benchmark/benchmark_controller.dart';
+import 'package:benchmarker/src/benchmark/benchmark_result.dart';
 import 'package:benchmarker/src/benchmark/http_client_builder.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http_cache_stream/http_cache_stream.dart';
@@ -236,6 +237,67 @@ void main() {
     expect(stats.totalBytes, payload.length);
     // Only the pre-cache download reached the origin.
     expect(originRequests, 1);
+  });
+
+  test('completed runs are kept, selectable and removable', () async {
+    expect(controller.results, isEmpty);
+    expect(controller.selectedResult, isNull);
+
+    final before = DateTime.now();
+    await controller.start(configFor(BenchmarkType.direct, total: 2));
+    await controller.start(configFor(BenchmarkType.direct, total: 2));
+    final after = DateTime.now();
+
+    expect(controller.results.map((result) => result.id), [1, 2]);
+
+    final first = controller.results.first;
+    expect(first.status, 'Finished');
+    expect(first.stats.completed, 2);
+    expect(first.config!.type, BenchmarkType.direct);
+    expect(first.targetUrl, sourceUrl);
+    expect(first.mode, BuildMode.current);
+    expect(first.isComplete, isTrue);
+    expect(first.startedAt.isBefore(first.endedAt!), isTrue);
+    expect(first.startedAt.isBefore(before), isFalse);
+    expect(first.endedAt!.isAfter(after), isFalse);
+    // The wall clock covers preparation as well as the measured requests.
+    expect(
+      first.wallDuration!.inMicroseconds,
+      greaterThanOrEqualTo(first.stats.elapsed.inMicroseconds),
+    );
+
+    // The panel follows the newest run until an older one is picked.
+    expect(controller.selectedResultId, 2);
+    controller.selectResult(1);
+    expect(controller.selectedResultId, 1);
+
+    controller.deleteResult(1);
+    expect(controller.results.map((result) => result.id), [2]);
+    expect(controller.selectedResultId, 2);
+
+    controller.clearResults();
+    expect(controller.results, isEmpty);
+    expect(controller.selectedResult, isNull);
+  });
+
+  test('a run in flight is selectable before it is recorded', () async {
+    final run = controller.start(configFor(BenchmarkType.direct, total: 4));
+
+    // start() sets the phase before its first suspension, so the run is
+    // already in flight here.
+    expect(controller.phase.isBusy, isTrue);
+    final live = controller.liveResult!;
+    expect(live.id, 1);
+    expect(live.isComplete, isFalse);
+    expect(live.wallDuration, isNull);
+    expect(live.status, controller.statusLabel);
+    expect(controller.results, isEmpty);
+
+    await run;
+
+    expect(controller.liveResult, isNull);
+    expect(controller.results.single.id, live.id);
+    expect(controller.selectedResult!.isComplete, isTrue);
   });
 
   test('the worker pool is reused between runs with the same settings',

@@ -85,13 +85,29 @@ roughly four times a second:
 - Outcome breakdown: verified, unverified (no `Content-Length`), byte
   mismatches, HTTP errors, and failures.
 
+- When the run started and ended, the wall-clock time between them, and the
+  **build mode** (debug, profile or release) it was measured in. Debug numbers
+  are not comparable with profile or release ones.
+
 Every response's received byte count is checked against its `Content-Length`; a
 mismatch is reported as a problem rather than a success.
 
-The copy button at the top right of the statistics panel puts the whole run on
-the clipboard — source URL, target URL, cache type, request range, client and
-concurrency alongside the numbers — as either an aligned plain-text summary or
-JSON for feeding into other tooling.
+### Result history
+
+Every run that reaches a terminal phase — finished, cancelled or failed — is
+recorded and stays available from the **Result** dropdown at the top of the
+statistics panel, newest first, so runs can be compared without re-running them.
+The panel follows the run in flight unless an older one is picked. History lives
+in memory only: it is gone when the app exits.
+
+The copy button at the top right of the statistics panel puts the run on show on
+the clipboard — source URL, target URL, cache type, request range, client,
+concurrency, timestamps and build mode alongside the numbers — as either an
+aligned plain-text summary or JSON. Its third option exports **every** recorded
+run as a JSON list for feeding into other tooling.
+
+The clear button beside it deletes the run on show, or clears the whole history.
+A run still in flight has not been recorded yet, so it cannot be deleted.
 
 For cache-server runs, the page also shows live download progress
 (`x / y bytes`, percentage) taken from `HttpCacheStream.cacheStateStream`, and
@@ -107,6 +123,7 @@ lib/
     benchmark_config.dart                inputs, run types, request distribution
     benchmark_controller.dart            run orchestration and aggregation
     benchmark_report.dart                clipboard reports (text and JSON)
+    benchmark_result.dart                one recorded run: timings, mode, stats
     benchmark_stats.dart                 timing/percentile accumulation
     benchmark_worker.dart                worker isolate entry point
     http_client_builder.dart             selectable http client implementations

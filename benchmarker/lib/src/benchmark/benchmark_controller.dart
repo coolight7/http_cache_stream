@@ -8,23 +8,35 @@ import '../util/formatting.dart';
 import 'benchmark_config.dart';
 import 'benchmark_log.dart';
 import 'benchmark_report.dart';
+import 'benchmark_result.dart';
 import 'benchmark_stats.dart';
 import 'worker_pool.dart';
 import 'worker_protocol.dart';
 
 enum BenchmarkPhase {
-  idle,
-  preparing,
-  running,
-  cancelling,
-  finished,
-  cancelled,
-  failed;
+  idle('Idle'),
+  preparing('Preparing…'),
+  running('Running'),
+  cancelling('Cancelling…'),
+  finished('Finished'),
+  cancelled('Cancelled'),
+  failed('Failed');
+
+  const BenchmarkPhase(this.label);
+
+  /// Human-readable name of the phase.
+  final String label;
 
   bool get isBusy =>
       this == BenchmarkPhase.preparing ||
       this == BenchmarkPhase.running ||
       this == BenchmarkPhase.cancelling;
+
+  /// Whether a run in this phase is over and can be recorded.
+  bool get isTerminal =>
+      this == BenchmarkPhase.finished ||
+      this == BenchmarkPhase.cancelled ||
+      this == BenchmarkPhase.failed;
 }
 
 /// Drives a benchmark run: prepares the cache, dispatches work to the isolate
@@ -40,6 +52,9 @@ class BenchmarkController extends ChangeNotifier {
   final Map<String, int> _problemCounts = {};
   final Stopwatch _runClock = Stopwatch();
 
+  /// Completed runs of this session, oldest first.
+  final List<BenchmarkResult> _results = [];
+
   WorkerPool? _pool;
   StreamSubscription<WorkerEvent>? _poolEvents;
   HttpCacheStream? _cacheStream;
@@ -50,6 +65,7 @@ class BenchmarkController extends ChangeNotifier {
 
   final Set<int> _outstandingWorkers = {};
   int _jobId = 0;
+  int _runId = 0;
   bool _cancelRequested = false;
   bool _dirty = false;
   bool _warnedUnverified = false;
@@ -61,6 +77,11 @@ class BenchmarkController extends ChangeNotifier {
   BenchmarkStats? _stats;
   CacheState? _cacheState;
   Uri? _targetUrl;
+  DateTime? _startedAt;
+
+  /// Id of the recorded result the UI is pinned to, or null while it follows
+  /// the run in flight.
+  int? _selectedResultId;
 
   BenchmarkPhase get phase => _phase;
 
@@ -85,6 +106,76 @@ class BenchmarkController extends ChangeNotifier {
   /// Number of live worker isolates, or 0 when no pool is spawned.
   int get poolSize => _pool?.size ?? 0;
 
+  /// Status line of the current phase, e.g. `Running · 4 workers`.
+  String get statusLabel => _phase == BenchmarkPhase.running
+      ? '${_phase.label} · $poolSize workers'
+      : _phase.label;
+
+  /// Every completed run of this session, oldest first.
+  List<BenchmarkResult> get results => List.unmodifiable(_results);
+
+  /// The run in flight, or null when no run is in progress.
+  BenchmarkResult? get liveResult {
+    final stats = _stats;
+    final startedAt = _startedAt;
+    if (!_phase.isBusy || stats == null || startedAt == null) return null;
+    return BenchmarkResult(
+      id: _runId,
+      stats: stats,
+      status: statusLabel,
+      startedAt: startedAt,
+      config: _config,
+      targetUrl: _targetUrl,
+    );
+  }
+
+  /// The result the UI shows: the pinned one from the history, or the run in
+  /// flight when nothing is pinned.
+  BenchmarkResult? get selectedResult {
+    final id = _selectedResultId;
+    if (id != null) {
+      for (final result in _results) {
+        if (result.id == id) return result;
+      }
+    }
+    return liveResult;
+  }
+
+  /// Id of the result the UI shows, or null when there is nothing to show.
+  int? get selectedResultId => selectedResult?.id;
+
+  /// Pins the history entry with [id]. Selecting the run in flight, or an id
+  /// that is no longer in the history, follows the live run again.
+  void selectResult(int? id) {
+    _selectedResultId =
+        id == null || (liveResult != null && id == liveResult!.id) ? null : id;
+    notifyListeners();
+  }
+
+  /// Removes a single run from the history.
+  ///
+  /// A run in flight is never recorded yet, so it cannot be deleted.
+  void deleteResult(int id) {
+    final removed = _results.indexWhere((result) => result.id == id);
+    if (removed < 0) return;
+    _results.removeAt(removed);
+    if (_selectedResultId == id) {
+      // Fall back to the neighbouring run, or to the live run when the history
+      // is empty.
+      final next = removed < _results.length ? removed : _results.length - 1;
+      _selectedResultId = next < 0 ? null : _results[next].id;
+    }
+    notifyListeners();
+  }
+
+  /// Drops every recorded run. The run in flight, if any, keeps going.
+  void clearResults() {
+    if (_results.isEmpty) return;
+    _results.clear();
+    _selectedResultId = null;
+    notifyListeners();
+  }
+
   /// Starts a run. Does nothing when a run is already in progress.
   Future<void> start(BenchmarkConfig config) async {
     if (_phase.isBusy || _disposed) return;
@@ -98,11 +189,20 @@ class BenchmarkController extends ChangeNotifier {
     _stats = BenchmarkStats.empty(config.totalRequests);
     _cacheState = null;
     _targetUrl = null;
+    _startedAt = DateTime.now();
+    // The stats panel follows the new run rather than whatever the user was
+    // reading in the history.
+    _selectedResultId = null;
+    _runId++;
     _runClock
       ..reset()
       ..stop();
 
-    _log('── ${config.type.label} run: ${config.sourceUrl}');
+    _log('── Run #$_runId · ${config.type.label}: ${config.sourceUrl}');
+    _log(
+      'Started ${formatTimestamp(_startedAt!)} · '
+      '${BuildMode.current.label} build',
+    );
     _log(
       '${config.totalRequests} requests · ${config.concurrency} workers · '
       '${config.clientOption.label}',
@@ -296,8 +396,35 @@ class BenchmarkController extends ChangeNotifier {
     _stopTicker();
     _refreshStats();
     _summarize(phase);
+    _record(phase);
     unawaited(_releaseCacheStream());
     _setPhase(phase);
+  }
+
+  /// Files the finished run in the history and pins the stats panel to it,
+  /// unless the user has pinned an older run in the meantime.
+  void _record(BenchmarkPhase phase) {
+    final stats = _stats;
+    final startedAt = _startedAt;
+    if (!phase.isTerminal || stats == null || startedAt == null) return;
+
+    final endedAt = DateTime.now();
+    final result = BenchmarkResult(
+      id: _runId,
+      stats: stats,
+      status: phase.label,
+      startedAt: startedAt,
+      endedAt: endedAt,
+      config: _config,
+      targetUrl: _targetUrl,
+    );
+    _results.add(result);
+    _selectedResultId ??= result.id;
+
+    _log(
+      'Ended ${formatTimestamp(endedAt)} · '
+      '${formatDuration(result.wallDuration!)} wall clock',
+    );
   }
 
   void _summarize(BenchmarkPhase phase) {
