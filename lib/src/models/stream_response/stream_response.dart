@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../cache_stream/cache_downloader/buffered_io_sink.dart';
 import '../cache_config/stream_cache_config.dart';
 import '../cache_files/cache_files.dart';
 import '../metadata/cached_response_headers.dart';
@@ -8,6 +9,7 @@ import 'cache_download_stream_response.dart';
 import 'combined_cache_stream_response.dart';
 import 'file_stream_response.dart';
 import 'header_stream_response.dart';
+import 'partial_file_stream_response.dart';
 import 'range_download_stream_response.dart';
 
 /// Represents a response from the cache manager.
@@ -51,6 +53,21 @@ abstract class StreamResponse {
     final CachedResponseHeaders responseHeaders,
   ) {
     return FileStreamResponse(range, cacheFiles, responseHeaders);
+  }
+
+  /// Creates a [StreamResponse] from a cache file that is still being written.
+  factory StreamResponse.fromPartialFile(
+    final IntRange range,
+    final CacheFiles cacheFiles,
+    final CachedResponseHeaders responseHeaders,
+    final PartialCacheFeed feed,
+  ) {
+    return PartialFileStreamResponse(
+      range,
+      cacheFiles,
+      responseHeaders,
+      feed,
+    );
   }
 
   factory StreamResponse.fromStream(
@@ -132,6 +149,10 @@ enum ResponseSource {
 
   ///A stream response that is served exclusively from cached data saved to a file.
   cacheFile,
+
+  /// A stream response served from committed bytes in a cache file that is
+  /// still being written. It waits for requested positions as needed.
+  partialCacheFile,
 
   ///A stream response that is served exclusively from the cache download stream.
   ///

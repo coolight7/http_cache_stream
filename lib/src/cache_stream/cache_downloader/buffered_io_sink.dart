@@ -2,17 +2,22 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+part 'buffered_io_sink_feed.dart';
+part 'partial_cache_feed.dart';
+
 /// An IO sink that supports adding data while flushing to disk asynchronously.
 class BufferedIOSink {
   final File file;
   BufferedIOSink(this.file, int initialPosition)
-      : _flushedBytes = initialPosition;
+      : _flushedBytes = initialPosition {
+    _feed = BufferedIOSinkFeed._(this);
+  }
   int _flushedBytes;
   final _buffer = BytesBuilder(copy: false);
   RandomAccessFile? _openedRAF;
   bool _isClosed = false;
   Future<void>? _flushFuture;
-  final List<({int position, Completer<void> completer})> _positionWaiters = [];
+  late final BufferedIOSinkFeed _feed;
 
   void add(List<int> data) {
     if (_isClosed) {
@@ -46,11 +51,11 @@ class BufferedIOSink {
           final bytes = _buffer.takeBytes();
           await raf.writeFrom(bytes, 0, bytes.length);
           _flushedBytes += bytes.length;
-          _notifyPositionWaiters();
+          _feed._notifyPositionWaiters();
         }
         _flushFuture = null;
       } catch (e) {
-        _failPositionWaiters(e);
+        _feed._failPositionWaiters(e);
         rethrow;
       }
     }();
@@ -60,38 +65,8 @@ class BufferedIOSink {
   /// Completes immediately if the position is already reached.
   /// Fails if the sink is closed or a flush error occurs before the position is reached.
   Future<void> waitForPosition(int minFlushedBytes,
-      [Duration timeout = const Duration(seconds: 30)]) {
-    if (_flushedBytes >= minFlushedBytes) return Future.value();
-    if (_isClosed) {
-      return Future.error(StateError(
-          'BufferedIOSink closed before reaching position $minFlushedBytes'));
-    }
-    final completer = Completer<void>();
-    _positionWaiters.add((position: minFlushedBytes, completer: completer));
-    return completer.future.timeout(timeout, onTimeout: () {
-      _positionWaiters.removeWhere((w) => w.completer == completer);
-      throw TimeoutException(
-          'Timeout while waiting for flushedBytes to reach $minFlushedBytes',
-          timeout);
-    });
-  }
-
-  void _notifyPositionWaiters() {
-    if (_positionWaiters.isEmpty) return;
-    for (int i = _positionWaiters.length - 1; i >= 0; i--) {
-      if (_flushedBytes >= _positionWaiters[i].position) {
-        _positionWaiters.removeAt(i).completer.complete();
-      }
-    }
-  }
-
-  void _failPositionWaiters(Object error) {
-    if (_positionWaiters.isEmpty) return;
-    for (final w in _positionWaiters) {
-      w.completer.completeError(error);
-    }
-    _positionWaiters.clear();
-  }
+          [Duration timeout = const Duration(seconds: 30)]) =>
+      _feed.waitForPosition(minFlushedBytes, timeout);
 
   Future<void> close({final bool flushBuffer = true}) async {
     if (_isClosed) return;
@@ -103,7 +78,7 @@ class BufferedIOSink {
       }
       await flush(); //Even if !flushBuffer, ongoing flush must complete before RAF can be closed
     } finally {
-      _failPositionWaiters(StateError('BufferedIOSink closed'));
+      _feed._failPositionWaiters(StateError('BufferedIOSink closed'));
       _buffer.clear();
       if (_openedRAF case final RandomAccessFile raf) {
         _openedRAF = null;
@@ -114,6 +89,7 @@ class BufferedIOSink {
 
   int get bufferSize => _buffer.length;
   int get flushedBytes => _flushedBytes;
+  PartialCacheFeed get feed => _feed;
   bool get flushed => _buffer.isEmpty && !isFlushing;
   bool get isFlushing => _flushFuture != null;
   bool get isClosed => _isClosed;

@@ -49,7 +49,9 @@ void main() {
     await sink.flush();
     expect(sink.bufferSize, 0);
     expect(sink.flushedBytes, data.length);
+    expect(sink.feed.position, data.length);
     await sink.close();
+    expect(sink.feed.isClosed, isTrue);
   });
 
   test('append mode resumes from an existing partial file', () async {
@@ -76,6 +78,21 @@ void main() {
     await sink.flush();
     await f; // should not throw
     await sink.close();
+  });
+
+  test('feed waitForPosition completes once the target is flushed', () async {
+    final data = Payload.generate(10 * 1024);
+    final sink = BufferedIOSink(tmp('feed-wait.bin'), 0);
+    final feed = sink.feed;
+    sink.add(data);
+
+    final wait = feed.waitForPosition(5 * 1024);
+    await sink.flush();
+    await wait;
+
+    expect(feed.position, data.length);
+    await sink.close();
+    expect(feed.isClosed, isTrue);
   });
 
   test('waitForPosition times out when the target is never reached', () async {
