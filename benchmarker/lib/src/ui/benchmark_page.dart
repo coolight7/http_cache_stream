@@ -29,26 +29,6 @@ class _BenchmarkPageState extends State<BenchmarkPage> {
     super.dispose();
   }
 
-  String get _status {
-    final controller = _controller;
-    switch (controller.phase) {
-      case BenchmarkPhase.idle:
-        return 'Idle';
-      case BenchmarkPhase.preparing:
-        return 'Preparing…';
-      case BenchmarkPhase.running:
-        return 'Running · ${controller.poolSize} workers';
-      case BenchmarkPhase.cancelling:
-        return 'Cancelling…';
-      case BenchmarkPhase.finished:
-        return 'Finished';
-      case BenchmarkPhase.cancelled:
-        return 'Cancelled';
-      case BenchmarkPhase.failed:
-        return 'Failed';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -91,10 +71,12 @@ class _BenchmarkPageState extends State<BenchmarkPage> {
                 )
               : null;
           final stats = StatsPanel(
-            stats: _controller.stats,
-            status: _status,
-            config: _controller.config,
-            targetUrl: _controller.targetUrl,
+            result: _controller.selectedResult,
+            status: _controller.statusLabel,
+            history: _controller.results,
+            onSelect: _controller.selectResult,
+            onDelete: _controller.deleteResult,
+            onClearAll: _controller.clearResults,
           );
           final log = LogPanel(
             logs: _controller.logs,

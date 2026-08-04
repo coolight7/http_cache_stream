@@ -45,8 +45,17 @@ String formatPercent(double fraction, {int fractionDigits = 1}) =>
 
 /// Formats a wall-clock time as `HH:mm:ss.SSS`.
 String formatClockTime(DateTime time) {
-  String pad(int value, [int width = 2]) =>
-      value.toString().padLeft(width, '0');
-  return '${pad(time.hour)}:${pad(time.minute)}:${pad(time.second)}'
-      '.${pad(time.millisecond, 3)}';
+  return '${_pad(time.hour)}:${_pad(time.minute)}:${_pad(time.second)}'
+      '.${_pad(time.millisecond, 3)}';
 }
+
+/// Formats a date and wall-clock time as `yyyy-MM-dd HH:mm:ss.SSS`, in the
+/// local time zone.
+String formatTimestamp(DateTime time) {
+  final local = time.toLocal();
+  return '${local.year}-${_pad(local.month)}-${_pad(local.day)} '
+      '${formatClockTime(local)}';
+}
+
+String _pad(int value, [int width = 2]) =>
+    value.toString().padLeft(width, '0');

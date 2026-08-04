@@ -2,7 +2,10 @@ import 'dart:convert';
 
 import '../util/formatting.dart';
 import 'benchmark_config.dart';
+import 'benchmark_result.dart';
 import 'benchmark_stats.dart';
+
+const JsonEncoder _encoder = JsonEncoder.withIndent('  ');
 
 /// One line describing what each request in [config] asks for.
 String describeRangePlan(BenchmarkConfig config) {
@@ -17,12 +20,18 @@ String describeRangePlan(BenchmarkConfig config) {
 }
 
 /// Renders a run's configuration and results as indented JSON.
-String buildJsonReport({
-  required BenchmarkStats stats,
-  BenchmarkConfig? config,
-  Uri? targetUrl,
-  String? status,
-}) {
+String buildJsonReport(BenchmarkResult result) =>
+    _encoder.convert(buildReportMap(result));
+
+/// Renders every run as a JSON list, oldest first.
+String buildJsonReportList(Iterable<BenchmarkResult> results) =>
+    _encoder.convert([for (final result in results) buildReportMap(result)]);
+
+/// Builds the JSON structure describing a single run.
+Map<String, Object?> buildReportMap(BenchmarkResult result) {
+  final stats = result.stats;
+  final config = result.config;
+
   Map<String, Object?> timing(TimingStats? timing) {
     if (timing == null) return {};
     return {
@@ -37,12 +46,17 @@ String buildJsonReport({
   }
 
   final plan = config?.rangePlan;
-  final report = <String, Object?>{
+  return <String, Object?>{
+    'run_id': result.id,
     'source_url': config?.sourceUrl.toString(),
-    'target_url': targetUrl?.toString(),
+    'target_url': result.targetUrl?.toString(),
     'cache_type': config?.type.name,
     'cache_type_label': config?.type.label,
-    'status': status,
+    'status': result.status,
+    'build_mode': result.mode.name,
+    'started_at': result.startedAt.toIso8601String(),
+    'ended_at': result.endedAt?.toIso8601String(),
+    'wall_duration_us': result.wallDuration?.inMicroseconds,
     'concurrency': config?.concurrency,
     'http_client': config?.clientOption.label,
     'range': {
@@ -82,21 +96,16 @@ String buildJsonReport({
       'completion': timing(stats.completionTime),
     },
   };
-
-  return const JsonEncoder.withIndent('  ').convert(report);
 }
 
 /// Renders a run's configuration and results as an aligned plain-text summary.
-String buildTextReport({
-  required BenchmarkStats stats,
-  BenchmarkConfig? config,
-  Uri? targetUrl,
-  String? status,
-}) {
+String buildTextReport(BenchmarkResult result) {
+  final stats = result.stats;
+  final config = result.config;
   final buffer = StringBuffer()
     ..writeln(
       'http_cache_stream benchmark'
-      '${config == null ? '' : ' — ${config.type.label}'}',
+      '${config == null ? '' : ' — ${config.type.label}'} (run #${result.id})',
     );
 
   void field(String label, String? value) {
@@ -105,14 +114,24 @@ String buildTextReport({
   }
 
   field('Source', config?.sourceUrl.toString());
-  field('Target', targetUrl?.toString());
+  field('Target', result.targetUrl?.toString());
   field('Client', config?.clientOption.label);
   field(
     'Concurrency',
     config == null ? null : '${config.concurrency} worker isolates',
   );
   field('Range', config == null ? null : describeRangePlan(config));
-  field('Status', status);
+  field('Status', result.status);
+  field('Mode', '${result.mode.label} build');
+  field('Started', formatTimestamp(result.startedAt));
+  field(
+    'Ended',
+    result.endedAt == null ? null : formatTimestamp(result.endedAt!),
+  );
+  field(
+    'Duration',
+    result.wallDuration == null ? null : formatDuration(result.wallDuration!),
+  );
 
   buffer
     ..writeln()
