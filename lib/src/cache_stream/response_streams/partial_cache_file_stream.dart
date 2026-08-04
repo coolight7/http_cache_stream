@@ -60,11 +60,11 @@ class PartialCacheFileStream extends Stream<List<int>> {
 
   Future<RandomAccessFile> _openActiveCacheFile() async {
     try {
-      return await cacheFiles.activeCacheFile().open();
-    } catch (_) {
+      return await cacheFiles.activeCacheFile().open(mode: FileMode.read);
+    } on FileSystemException {
       // The partial file may have been renamed after activeCacheFile() selected
       // it. Resolve the active path again and retry once.
-      return cacheFiles.activeCacheFile().open();
+      return cacheFiles.activeCacheFile().open(mode: FileMode.read);
     }
   }
 
