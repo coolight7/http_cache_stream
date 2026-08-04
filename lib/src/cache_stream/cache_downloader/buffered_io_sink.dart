@@ -7,11 +7,14 @@ part 'partial_cache_feed.dart';
 
 /// An IO sink that supports adding data while flushing to disk asynchronously.
 class BufferedIOSink {
+  //Maximum number of bytes to write in a single write operation. This prevents long writes from stalling position waiters.
+  static const int _maxWriteSize = 256 * 1024; // 256 KB
+
   final File file;
-  BufferedIOSink(this.file, int initialPosition)
-      : _flushedBytes = initialPosition {
+  BufferedIOSink(this.file, int initialPosition) : _flushedBytes = initialPosition {
     _feed = BufferedIOSinkFeed._(this);
   }
+
   int _flushedBytes;
   final _buffer = BytesBuilder(copy: false);
   RandomAccessFile? _openedRAF;
@@ -49,9 +52,13 @@ class BufferedIOSink {
 
         while (_buffer.isNotEmpty) {
           final bytes = _buffer.takeBytes();
-          await raf.writeFrom(bytes, 0, bytes.length);
-          _flushedBytes += bytes.length;
-          _feed._notifyPositionWaiters();
+          for (int start = 0; start < bytes.length; start += _maxWriteSize) {
+            final int uncappedEnd = start + _maxWriteSize;
+            final int end = uncappedEnd < bytes.length ? uncappedEnd : bytes.length;
+            await raf.writeFrom(bytes, start, end);
+            _flushedBytes += end - start;
+            _feed._notifyPositionWaiters();
+          }
         }
         _flushFuture = null;
       } catch (e) {
@@ -64,9 +71,7 @@ class BufferedIOSink {
   /// Returns a [Future] that completes once [flushedBytes] reaches or exceeds [minFlushedBytes].
   /// Completes immediately if the position is already reached.
   /// Fails if the sink is closed or a flush error occurs before the position is reached.
-  Future<void> waitForPosition(int minFlushedBytes,
-          [Duration timeout = const Duration(seconds: 30)]) =>
-      _feed.waitForPosition(minFlushedBytes, timeout);
+  Future<void> waitForPosition(int minFlushedBytes, [Duration timeout = const Duration(seconds: 30)]) => _feed.waitForPosition(minFlushedBytes, timeout);
 
   Future<void> close({final bool flushBuffer = true}) async {
     if (_isClosed) return;
