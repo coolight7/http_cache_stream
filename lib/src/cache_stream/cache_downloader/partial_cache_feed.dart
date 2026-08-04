@@ -6,7 +6,7 @@ part of 'buffered_io_sink.dart';
 /// class owns the shared position-waiting behavior so consumers do not need to
 /// poll the file system.
 abstract class PartialCacheFeed {
-  final List<({int position, Completer<void> completer})> _positionWaiters = [];
+  final List<_PendingPositionWaiter> _positionWaiters = [];
   Object? _failure;
 
   /// The exclusive end position currently safe to read from the cache file.
@@ -15,44 +15,43 @@ abstract class PartialCacheFeed {
   /// Whether the producer can no longer commit additional bytes.
   bool get isClosed;
 
-  /// Completes once [position] reaches or exceeds [minPosition].
+  /// Returns a [PositionWaiter] that completes once [position] reaches or
+  /// exceeds [minPosition].
   ///
-  /// The future fails if the feed fails or closes before reaching the requested
-  /// position. It also fails if [timeout] elapses first.
-  Future<void> waitForPosition(
-    final int minPosition, [
-    final Duration timeout = const Duration(seconds: 30),
-  ]) {
-    if (position >= minPosition) return Future<void>.value();
+  /// The waiter is returned synchronously and may already be completed. It
+  /// fails if the feed fails, closes before reaching the requested position, or
+  /// is cancelled via [PositionWaiter.cancel]. Callers that no longer need the
+  /// position must cancel the waiter to release it.
+  PositionWaiter waitForPosition(final int minPosition) {
+    if (position >= minPosition) {
+      return _CompletedPositionWaiter.reached(minPosition);
+    }
 
     final failure = _failure;
-    if (failure != null) return Future<void>.error(failure);
+    if (failure != null) {
+      return _CompletedPositionWaiter.failed(minPosition, failure);
+    }
+
     if (isClosed) {
-      return Future<void>.error(
+      return _CompletedPositionWaiter.failed(
+        minPosition,
         StateError(
           'Partial cache feed closed before reaching position $minPosition',
         ),
       );
     }
 
-    final completer = Completer<void>();
-    _positionWaiters.add((position: minPosition, completer: completer));
-    return completer.future.timeout(timeout, onTimeout: () {
-      _positionWaiters.removeWhere((waiter) => waiter.completer == completer);
-      throw TimeoutException(
-        'Timeout while waiting for partial cache position to reach '
-        '$minPosition',
-        timeout,
-      );
-    });
+    final waiter = _PendingPositionWaiter(this, minPosition);
+    _positionWaiters.add(waiter);
+    return waiter;
   }
 
   void _notifyPositionWaiters() {
     if (_positionWaiters.isEmpty) return;
     final currentPosition = position;
     for (int i = _positionWaiters.length - 1; i >= 0; i--) {
-      if (currentPosition >= _positionWaiters[i].position) {
-        _positionWaiters.removeAt(i).completer.complete();
+      if (currentPosition >= _positionWaiters[i].minPosition) {
+        _positionWaiters.removeAt(i)._complete();
       }
     }
   }
@@ -60,9 +59,10 @@ abstract class PartialCacheFeed {
   void _failPositionWaiters(final Object error) {
     _failure ??= error;
     if (_positionWaiters.isEmpty) return;
-    for (final waiter in _positionWaiters) {
-      waiter.completer.completeError(_failure!);
-    }
+    final waiters = List<_PendingPositionWaiter>.of(_positionWaiters);
     _positionWaiters.clear();
+    for (final waiter in waiters) {
+      waiter._completeError(_failure!);
+    }
   }
 }

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 part 'buffered_io_sink_feed.dart';
 part 'partial_cache_feed.dart';
+part 'position_waiter.dart';
 
 /// An IO sink that supports adding data while flushing to disk asynchronously.
 class BufferedIOSink {
@@ -68,10 +69,10 @@ class BufferedIOSink {
     }();
   }
 
-  /// Returns a [Future] that completes once [flushedBytes] reaches or exceeds [minFlushedBytes].
+  /// Returns a [PositionWaiter] that completes once [flushedBytes] reaches or exceeds [minFlushedBytes].
   /// Completes immediately if the position is already reached.
-  /// Fails if the sink is closed or a flush error occurs before the position is reached.
-  Future<void> waitForPosition(int minFlushedBytes, [Duration timeout = const Duration(seconds: 30)]) => _feed.waitForPosition(minFlushedBytes, timeout);
+  /// Fails if the sink is closed, a flush error occurs before the position is reached, or the waiter is cancelled.
+  PositionWaiter waitForPosition(int minFlushedBytes) => _feed.waitForPosition(minFlushedBytes);
 
   Future<void> close({final bool flushBuffer = true}) async {
     if (_isClosed) return;

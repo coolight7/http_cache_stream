@@ -5,8 +5,6 @@ import '../cache_config/stream_cache_config.dart';
 import '../cache_files/cache_files.dart';
 import '../metadata/cached_response_headers.dart';
 import '../stream_requests/int_range.dart';
-import 'cache_download_stream_response.dart';
-import 'combined_cache_stream_response.dart';
 import 'file_stream_response.dart';
 import 'header_stream_response.dart';
 import 'partial_file_stream_response.dart';
@@ -70,40 +68,6 @@ abstract class StreamResponse {
     );
   }
 
-  factory StreamResponse.fromStream(
-    final IntRange range,
-    final CachedResponseHeaders headers,
-    final Stream<List<int>> dataStream,
-    final int dataStreamPosition,
-    final StreamCacheConfig streamConfig,
-  ) {
-    return CacheDownloadStreamResponse(
-      range,
-      headers,
-      dataStream: dataStream,
-      dataStreamPosition: dataStreamPosition,
-      streamConfig: streamConfig,
-    );
-  }
-
-  factory StreamResponse.combined(
-    final IntRange range,
-    final CachedResponseHeaders headers,
-    final CacheFiles cacheFiles,
-    final Stream<List<int>> dataStream,
-    final int dataStreamPosition,
-    final StreamCacheConfig streamConfig,
-  ) {
-    return CombinedCacheStreamResponse.construct(
-      range,
-      headers,
-      cacheFiles,
-      dataStream,
-      dataStreamPosition,
-      streamConfig,
-    );
-  }
-
   ///The length of the content in the response. This may be different from the source length.
   int? get contentLength {
     final effectiveEnd = this.effectiveEnd;
@@ -153,14 +117,4 @@ enum ResponseSource {
   /// A stream response served from committed bytes in a cache file that is
   /// still being written. It waits for requested positions as needed.
   partialCacheFile,
-
-  ///A stream response that is served exclusively from the cache download stream.
-  ///
-  ///Data from the cache download stream is buffered until a listener is added. The stream must be read to completion or cancelled to release buffered data. If you no longer need the stream, you must manually call [cancel] to avoid memory leaks.
-  cacheDownload,
-
-  ///A stream response that combines [cacheFile] and [cacheDownload] sources. When a listener is added, data is streamed from the cache file first, and once the file stream is done, it switches to the cache download stream.
-  ///
-  ///Data from the cache download stream is buffered until a listener is added. The stream must be read to completion or cancelled to release buffered data. If you no longer need the stream, you must manually call [cancel] to avoid memory leaks.
-  combined,
 }

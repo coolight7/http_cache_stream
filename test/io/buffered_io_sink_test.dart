@@ -1,9 +1,8 @@
-import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:http_cache_stream/src/cache_stream/cache_downloader/buffered_io_sink.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http_cache_stream/src/cache_stream/cache_downloader/buffered_io_sink.dart';
 
 import '../support/payload.dart';
 
@@ -76,7 +75,7 @@ void main() {
     sink.add(data);
     final f = sink.waitForPosition(5 * 1024);
     await sink.flush();
-    await f; // should not throw
+    await f.future; // should not throw
     await sink.close();
   });
 
@@ -88,31 +87,21 @@ void main() {
 
     final wait = feed.waitForPosition(5 * 1024);
     await sink.flush();
-    await wait;
+    await wait.future; // should not throw
 
     expect(feed.position, data.length);
     await sink.close();
     expect(feed.isClosed, isTrue);
   });
 
-  test('waitForPosition times out when the target is never reached', () async {
-    final sink = BufferedIOSink(tmp('timeout.bin'), 0);
-    sink.add(Payload.generate(1024));
-    await sink.flush();
-    await expectLater(
-      sink.waitForPosition(1 << 30, const Duration(milliseconds: 100)),
-      throwsA(isA<TimeoutException>()),
-    );
-    await sink.close();
-  });
+//TODO: Add PositionWaiter cancellation test
 
   test('waitForPosition fails if the sink closes before reaching it', () async {
     final sink = BufferedIOSink(tmp('closed.bin'), 0);
     sink.add(Payload.generate(1024));
     // Attach the matcher before closing: close() fails the waiter synchronously,
     // and an unobserved error future would otherwise crash the test.
-    final expectation = expectLater(
-        sink.waitForPosition(10 * 1024 * 1024), throwsA(isA<StateError>()));
+    final expectation = expectLater(sink.waitForPosition(10 * 1024 * 1024), throwsA(isA<StateError>()));
     await sink.close();
     await expectation;
   });
