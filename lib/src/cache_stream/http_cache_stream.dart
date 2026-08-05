@@ -180,13 +180,28 @@ class HttpCacheStream {
       await _ensureInit();
       _checkDisposed();
 
+      bool pendingFinalization = false;
+
       while (true) {
-        if ((await refreshCacheState()).isComplete) {
+        final state = await refreshCacheState();
+        if (state.isComplete) {
+          if (pendingFinalization) {
+            config.handleCacheCompletion(this, files.complete);
+          }
           return files.complete;
         }
         if (!isRetained) {
           throw DownloadStoppedException(sourceUrl);
         }
+
+        ///The content is fully downloaded, but the cache file could not be renamed because a response stream still holds the partial cache file open.
+        ///There is nothing left to download; wait for it to be released, then let [refreshCacheState] rename it.
+        if (state.sourceLength case final int sourceLength when state.position >= sourceLength) {
+          pendingFinalization = true;
+          await Future.delayed(const Duration(seconds: 2));
+          continue;
+        }
+
         try {
           final downloader = _cacheDownloader = CacheDownloader.construct(metadata, config);
           await downloader.download(
@@ -197,13 +212,18 @@ class HttpCacheStream {
               }
             },
             onComplete: (sourceLength) async {
-              await _fileLock.synchronized(() => files.partial.rename(files.complete.path));
               final cachedHeaders = _cachedResponseHeaders!;
               if (cachedHeaders.sourceLength != sourceLength || !cachedHeaders.acceptsRangeRequests) {
                 _setCachedResponseHeaders(cachedHeaders.setSourceLength(sourceLength));
               }
-              _updateCacheState(CacheState.complete(sourceLength));
-              config.handleCacheCompletion(this, files.complete);
+              try {
+                await _fileLock.synchronized(() => files.partial.rename(files.complete.path));
+                _updateCacheState(CacheState.complete(sourceLength));
+                config.handleCacheCompletion(this, files.complete);
+              } on FileSystemException {
+                ///The partial cache file is still held open by a response stream. Report the cache as unfinalized; the rename is retried above.
+                _updateCacheState(CacheState.incomplete(sourceLength, sourceLength));
+              }
             },
             onHeaders: (responseHeaders) {
               _setCachedResponseHeaders(responseHeaders);
@@ -278,6 +298,13 @@ class HttpCacheStream {
           return; //Stream was retained again during download cancellation
         }
       }
+
+      ///A fully downloaded cache may still be pending finalization. Response streams are done by now, so this is the last chance to rename it.
+      ///Without this, a complete download could be discarded below as if it were partial.
+      if (!cacheState.isComplete && (await refreshCacheState()).isComplete) {
+        config.handleCacheCompletion(this, files.complete);
+      }
+
       if (!config.savePartialCache && !cacheState.isComplete) {
         await resetCache();
       } else if (!config.saveMetadata && cacheState.isComplete) {

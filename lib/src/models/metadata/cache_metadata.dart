@@ -29,8 +29,7 @@ class CacheMetadata {
   static CacheMetadata? fromCacheFiles(final CacheFiles cacheFiles) {
     final metadataFile = cacheFiles.metadata;
     if (!metadataFile.existsSync()) return null;
-    final metadataJson =
-        jsonDecodeBytes(metadataFile.readAsBytesSync()) as Map<String, dynamic>;
+    final metadataJson = jsonDecodeBytes(metadataFile.readAsBytesSync()) as Map<String, dynamic>;
     return CacheMetadata(
       cacheFiles,
       Uri.parse(metadataJson['Url']),
@@ -44,8 +43,7 @@ class CacheMetadata {
 
     final completeCacheSize = await cacheFile.lengthOrNull();
     if (completeCacheSize != null) {
-      InvalidCacheSizeException.validate(
-          sourceUrl, completeCacheSize, sourceLength);
+      InvalidCacheSizeException.validate(sourceUrl, completeCacheSize, sourceLength);
       return CacheState.complete(completeCacheSize);
     }
 
@@ -53,12 +51,16 @@ class CacheMetadata {
     if (partialCacheSize == null || partialCacheSize <= 0) {
       return const CacheState.zero();
     } else if (partialCacheSize == sourceLength) {
-      await partialCacheFile.rename(
-          cacheFile.path); //Rename the partial cache to the complete cache
-      return CacheState.complete(partialCacheSize);
+      try {
+        await partialCacheFile.rename(cacheFile.path); //Rename the partial cache to the complete cache
+        return CacheState.complete(partialCacheSize);
+      } on FileSystemException {
+        ///The partial cache cannot be renamed while it is still held open, which happens on Windows while a response stream is reading it.
+        ///The content is fully downloaded but not yet finalized; the rename is retried until it succeeds.
+        return CacheState.incomplete(partialCacheSize, sourceLength);
+      }
     } else if (partialCacheSize > sourceLength) {
-      throw InvalidCacheSizeException(
-          sourceUrl, partialCacheSize, sourceLength);
+      throw InvalidCacheSizeException(sourceUrl, partialCacheSize, sourceLength);
     } else {
       return CacheState.incomplete(partialCacheSize, sourceLength);
     }
