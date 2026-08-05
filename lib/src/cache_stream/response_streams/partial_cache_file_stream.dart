@@ -129,7 +129,11 @@ class _PartialCacheFileReader {
         _controller.addError(e, stackTrace);
       }
     } finally {
-      raf?.close().ignore();
+      try {
+        await raf?.close();
+      } catch (_) {
+        //Intentionally ignored
+      }
       _controller.close().ignore();
     }
   }
@@ -150,11 +154,12 @@ class _PartialCacheFileReader {
 
   Future<void> _awaitPosition(final int minPosition) {
     assert(_positionWaiter?.isCompleted != false, 'A previous position waiter is still pending; only one can be awaited at a time.');
+    assert(!_isDone, 'Registering a position waiter after the listener is gone; it will never be cancelled.');
+
     return (_positionWaiter = _feed.waitForPosition(minPosition)).future;
   }
 
   Future<RandomAccessFile> _openActiveCacheFile() async {
-    assert(_positionWaiter?.isCompleted != false, 'A previous position waiter is still pending; only one can be awaited at a time.');
     assert(!_isDone, 'The listener is gone; the read loop should not be running.');
     try {
       return await _cacheFiles.activeCacheFile().open(mode: FileMode.read);

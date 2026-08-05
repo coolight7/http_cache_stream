@@ -152,16 +152,15 @@ class CacheDownloader {
   bool processRequest(final StreamRequest request) {
     assert(!_paused);
     if (request.start > downloadPosition) return false;
+    final headers = _cachedHeaders;
+    if (headers == null) return false;
 
     if (_downloader.isClosed && !_downloader.isDone) {
-      final effectiveEnd = request.end ?? sourceLength;
+      final effectiveEnd = request.end ?? headers.sourceLength;
       if (effectiveEnd == null || effectiveEnd > downloadPosition) {
         return false; //Downloader closed and request exceeds downloaded range, cannot fulfill request
       }
     }
-
-    final headers = _cachedHeaders;
-    if (headers == null) return false;
 
     request.complete(
       () => StreamResponse.fromPartialFile(
