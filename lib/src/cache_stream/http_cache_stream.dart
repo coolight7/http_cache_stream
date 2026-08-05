@@ -220,8 +220,13 @@ class HttpCacheStream {
                 await _fileLock.synchronized(() => files.partial.rename(files.complete.path));
                 _updateCacheState(CacheState.complete(sourceLength));
                 config.handleCacheCompletion(this, files.complete);
-              } on FileSystemException {
+              } on FileSystemException catch (e) {
                 ///The partial cache file is still held open by a response stream. Report the cache as unfinalized; the rename is retried above.
+                ///Emit the error once so a rename that fails for some other, permanent reason is not silently retried forever.
+                if (!pendingFinalization) {
+                  pendingFinalization = true;
+                  _addError(e, closeRequests: false);
+                }
                 _updateCacheState(CacheState.incomplete(sourceLength, sourceLength));
               }
             },

@@ -74,7 +74,17 @@ class BufferedIOSink {
   /// Fails if the sink is closed, a flush error occurs before the position is reached, or the waiter is cancelled.
   PositionWaiter waitForPosition(int minFlushedBytes) => _feed.waitForPosition(minFlushedBytes);
 
-  Future<void> close({final bool flushBuffer = true}) async {
+  /// Closes the sink, resolving any waiters that can no longer be satisfied.
+  ///
+  /// Set [isDone] when the producer reached the end of its content. The feed is
+  /// then left unfailed, so readers treat [flushedBytes] as the true end of the
+  /// content. When [isDone] is false the download was aborted, and the feed
+  /// fails with [PartialCacheAbortedException] so readers do not mistake the
+  /// truncated content for an end of stream.
+  Future<void> close({
+    final bool flushBuffer = true,
+    final bool isDone = false,
+  }) async {
     if (_isClosed) return;
     _isClosed = true;
 
@@ -84,7 +94,11 @@ class BufferedIOSink {
       }
       await flush(); //Even if !flushBuffer, ongoing flush must complete before RAF can be closed
     } finally {
-      _feed._failPositionWaiters(StateError('BufferedIOSink closed'));
+      if (isDone) {
+        _feed._closePositionWaiters();
+      } else {
+        _feed._failPositionWaiters(PartialCacheAbortedException(_flushedBytes));
+      }
       _buffer.clear();
       if (_openedRAF case final RandomAccessFile raf) {
         _openedRAF = null;

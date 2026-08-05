@@ -83,7 +83,7 @@ class _PartialCacheFileReader {
 
       ///Wait for the first requested byte before opening; the cache file may not exist yet.
       while (readPosition >= _feed.position) {
-        if (requestedEnd == null && _feed.isClosed) return; //Source complete
+        if (requestedEnd == null && _feed.isClosed) return _endOfContent();
         await _awaitPosition(readPosition + 1); //Wait for more bytes to be committed
         if (_isDone) return;
       }
@@ -105,7 +105,7 @@ class _PartialCacheFileReader {
         final int availableBytes = committedEnd - readPosition;
 
         if (availableBytes <= 0) {
-          if (_feed.isClosed && requestedEnd == null) return; //Source complete
+          if (_feed.isClosed && requestedEnd == null) return _endOfContent();
           await _awaitPosition(readPosition + 1); //Wait for more bytes to be committed
           continue;
         }
@@ -135,6 +135,18 @@ class _PartialCacheFileReader {
         //Intentionally ignored
       }
       _controller.close().ignore();
+    }
+  }
+
+  ///Ends a read with no known end position, now that the feed is closed.
+  ///
+  ///A closed feed is the only end-of-content signal available when the content
+  ///length is unknown, so an aborted download has to be reported as an error.
+  ///Returning normally would hand the listener a truncated body it would accept
+  ///as complete.
+  void _endOfContent() {
+    if (_feed.failure case final Object failure) {
+      throw failure;
     }
   }
 

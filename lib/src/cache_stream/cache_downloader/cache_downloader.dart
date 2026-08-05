@@ -103,7 +103,11 @@ class CacheDownloader {
 
       // Post-download — flush remaining data and verify cache integrity
       try {
-        await _sink.close(flushBuffer: true); //Flushes all buffered data and closes the sink
+        await _sink.close(
+          flushBuffer: true,
+          isDone: _downloader
+              .isDone, //If the source did not end, the feed is marked as aborted so readers do not treat it as an end of stream
+        ); //Flushes all buffered data and closes the sink
       } catch (e) {
         onError(e);
       }
