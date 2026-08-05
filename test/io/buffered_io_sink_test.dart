@@ -94,16 +94,79 @@ void main() {
     expect(feed.isClosed, isTrue);
   });
 
-//TODO: Add PositionWaiter cancellation test
+  test('cancel fails the waiter and releases it from the feed', () async {
+    final sink = BufferedIOSink(tmp('cancel.bin'), 0);
+    final waiter = sink.waitForPosition(10 * 1024);
+    expect(waiter.isCompleted, isFalse);
 
-  test('waitForPosition fails if the sink closes before reaching it', () async {
+    // Attach the matcher before cancelling: an unobserved error future would
+    // otherwise crash the test.
+    final expectation = expectLater(waiter.future, throwsA(isA<PositionWaiterCancelledException>()));
+    waiter.cancel();
+    expect(waiter.isCompleted, isTrue);
+    await expectation;
+
+    // The waiter is no longer tracked, so reaching its position does nothing.
+    sink.add(Payload.generate(10 * 1024));
+    await sink.flush();
+    expect(sink.feed.position, 10 * 1024);
+    expect(sink.feed.failure, isNull);
+
+    await sink.close(isDone: true);
+  });
+
+  test('cancel is a no-op once the waiter has been satisfied', () async {
+    final sink = BufferedIOSink(tmp('cancel-late.bin'), 0);
+    sink.add(Payload.generate(4 * 1024));
+
+    final waiter = sink.waitForPosition(2 * 1024);
+    await sink.flush();
+    await waiter.future;
+
+    waiter.cancel(); // Must not turn a satisfied wait into a failure
+    expect(waiter.isCompleted, isTrue);
+    await waiter.future; // Still completes normally
+
+    await sink.close(isDone: true);
+  });
+
+  test('cancel is a no-op for a position that was already reached', () async {
+    final sink = BufferedIOSink(tmp('cancel-reached.bin'), 0);
+    sink.add(Payload.generate(4 * 1024));
+    await sink.flush();
+
+    final waiter = sink.waitForPosition(1024);
+    expect(waiter.isCompleted, isTrue);
+    waiter.cancel();
+    await waiter.future; // Completed waiters ignore cancel
+
+    await sink.close(isDone: true);
+  });
+
+  test('waitForPosition fails as aborted if the sink closes before reaching it', () async {
     final sink = BufferedIOSink(tmp('closed.bin'), 0);
     sink.add(Payload.generate(1024));
     // Attach the matcher before closing: close() fails the waiter synchronously,
     // and an unobserved error future would otherwise crash the test.
-    final expectation = expectLater(sink.waitForPosition(10 * 1024 * 1024), throwsA(isA<StateError>()));
+    final expectation = expectLater(sink.waitForPosition(10 * 1024 * 1024).future, throwsA(isA<PartialCacheAbortedException>()));
     await sink.close();
     await expectation;
+
+    // The feed carries the failure, so a reader with no known end position can
+    // tell the truncated content apart from an end of stream.
+    expect(sink.feed.failure, isA<PartialCacheAbortedException>());
+  });
+
+  test('waitForPosition fails as closed when the sink is done before reaching it', () async {
+    final sink = BufferedIOSink(tmp('closed-done.bin'), 0);
+    sink.add(Payload.generate(1024));
+    final expectation = expectLater(sink.waitForPosition(10 * 1024 * 1024).future, throwsA(isA<StateError>()));
+    await sink.close(isDone: true);
+    await expectation;
+
+    // Reaching the end of the content is not a failure: flushedBytes is the
+    // true end, so readers must treat it as an end of stream.
+    expect(sink.feed.failure, isNull);
   });
 
   test('adding to a closed sink throws', () async {

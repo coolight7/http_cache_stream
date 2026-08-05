@@ -180,14 +180,9 @@ class HttpCacheStream {
       await _ensureInit();
       _checkDisposed();
 
-      bool pendingFinalization = false;
-
       while (true) {
         final state = await refreshCacheState();
         if (state.isComplete) {
-          if (pendingFinalization) {
-            config.handleCacheCompletion(this, files.complete);
-          }
           return files.complete;
         }
         if (!isRetained) {
@@ -197,7 +192,6 @@ class HttpCacheStream {
         ///The content is fully downloaded, but the cache file could not be renamed because a response stream still holds the partial cache file open.
         ///There is nothing left to download; wait for it to be released, then let [refreshCacheState] rename it.
         if (state.sourceLength case final int sourceLength when state.position >= sourceLength) {
-          pendingFinalization = true;
           await Future.delayed(const Duration(seconds: 2));
           continue;
         }
@@ -219,14 +213,10 @@ class HttpCacheStream {
               try {
                 await _fileLock.synchronized(() => files.partial.rename(files.complete.path));
                 _updateCacheState(CacheState.complete(sourceLength));
-                config.handleCacheCompletion(this, files.complete);
               } on FileSystemException catch (e) {
                 ///The partial cache file is still held open by a response stream. Report the cache as unfinalized; the rename is retried above.
                 ///Emit the error once so a rename that fails for some other, permanent reason is not silently retried forever.
-                if (!pendingFinalization) {
-                  pendingFinalization = true;
-                  _addError(e, closeRequests: false);
-                }
+                _addError(e, closeRequests: false);
                 _updateCacheState(CacheState.incomplete(sourceLength, sourceLength));
               }
             },
@@ -306,8 +296,8 @@ class HttpCacheStream {
 
       ///A fully downloaded cache may still be pending finalization. Response streams are done by now, so this is the last chance to rename it.
       ///Without this, a complete download could be discarded below as if it were partial.
-      if (!cacheState.isComplete && (await refreshCacheState()).isComplete) {
-        config.handleCacheCompletion(this, files.complete);
+      if (!cacheState.isComplete) {
+        await refreshCacheState();
       }
 
       if (!config.savePartialCache && !cacheState.isComplete) {
@@ -394,14 +384,24 @@ class HttpCacheStream {
   }
 
   void _updateCacheState(final CacheState cacheState) {
+    final previousState = _stateController.valueOrNull;
+
     if (!_stateController.isClosed) {
       _stateController.add(cacheState);
     }
 
-    if (cacheState.isComplete && _queuedRequests.isNotEmpty && headers != null) {
+    if (!cacheState.isComplete) return;
+
+    if (_queuedRequests.isNotEmpty && headers != null) {
       _queuedRequests.processAndRemove((request) {
         request.complete(() => StreamResponse.fromFile(request.range, files, headers!));
       });
+    }
+
+    ///Only the transition that created the complete cache file counts as completion.
+    ///A first state of [CompleteCacheState] means the file already existed on disk, so nothing was completed here.
+    if (previousState != null && !previousState.isComplete) {
+      config.handleCacheCompletion(this, files.complete);
     }
   }
 

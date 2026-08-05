@@ -79,10 +79,29 @@ void main() {
     final resultFuture = stream.expand((bytes) => bytes).toList();
 
     sink.add(payload);
-    await sink.close();
+    await sink.close(isDone: true);
     final result = await resultFuture;
 
     expect(Payload.hash(result), Payload.hash(payload.sublist(4 * 1024)));
+  });
+
+  test('an open-ended stream errors when the download is aborted', () async {
+    final payload = Payload.generate(80 * 1024);
+    final sink = BufferedIOSink(cacheFiles.partial, 0);
+    final stream = PartialCacheFileStream(
+      StreamRange.validate(4 * 1024, null, null),
+      cacheFiles,
+      sink.feed,
+    );
+    final resultFuture = stream.expand((bytes) => bytes).toList();
+
+    sink.add(payload);
+    await sink.close(); //Aborted: the source never reached the end of its content
+
+    // Without a known end position, a clean close is the only end-of-stream
+    // signal. An aborted feed must not be reported as one, or the listener
+    // accepts the truncated content as complete.
+    await expectLater(resultFuture, throwsA(isA<PartialCacheAbortedException>()));
   });
 
   test('opens the completed file after partial-file promotion', () async {
