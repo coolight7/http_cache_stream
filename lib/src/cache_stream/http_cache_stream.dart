@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:http_cache_stream/src/cache_stream/cache_downloader/cache_downloader.dart';
+import 'package:http_cache_stream/src/etc/extensions/future_extensions.dart';
 import 'package:http_cache_stream/src/models/cache_config/stream_cache_config.dart';
 import 'package:http_cache_stream/src/models/cache_files/cache_files.dart';
 import 'package:http_cache_stream/src/models/metadata/cached_response_headers.dart';
@@ -49,7 +50,7 @@ class HttpCacheStream {
   final _validateCacheFuture = FutureRunner<bool?>();
   final _initFuture = FutureRunner<void>();
   Timer? _lifeCycleTimer; //Timer for auto-disposing the stream after release
-  late final _fileLock = Lock(); //Lock for modifying cache files
+  final _fileLock = Lock(); //Lock for modifying cache files
   final _disposeCompleter = Completer<void>(); //Completer for the dispose future
   CachedResponseHeaders? _cachedResponseHeaders; //The cached response headers, if any
 
@@ -207,18 +208,11 @@ class HttpCacheStream {
             },
             onComplete: (sourceLength) async {
               final cachedHeaders = _cachedResponseHeaders!;
-              if (cachedHeaders.sourceLength != sourceLength || !cachedHeaders.acceptsRangeRequests) {
-                _setCachedResponseHeaders(cachedHeaders.setSourceLength(sourceLength));
+              if (cachedHeaders.sourceLength != sourceLength || !cachedHeaders.acceptsRangeRequests || cachedHeaders.isCompressedOrChunked) {
+                await _setCachedResponseHeaders(cachedHeaders.setSourceLength(sourceLength));
               }
-              try {
-                await _fileLock.synchronized(() => files.partial.rename(files.complete.path));
-                _updateCacheState(CacheState.complete(sourceLength));
-              } on FileSystemException catch (e) {
-                ///The partial cache file is still held open by a response stream. Report the cache as unfinalized; the rename is retried above.
-                ///Emit the error once so a rename that fails for some other, permanent reason is not silently retried forever.
-                _addError(e, closeRequests: false);
-                _updateCacheState(CacheState.incomplete(sourceLength, sourceLength));
-              }
+              //Handles validating and renaming partial cache to complete.
+              await refreshCacheState();
             },
             onHeaders: (responseHeaders) {
               _setCachedResponseHeaders(responseHeaders);
@@ -288,22 +282,15 @@ class HttpCacheStream {
     try {
       final downloader = _cacheDownloader;
       if (downloader != null) {
-        await downloader.cancel();
+        await downloader.cancel().ignoreResult();
         if (isRetained) {
           return; //Stream was retained again during download cancellation
         }
       }
 
-      ///A fully downloaded cache may still be pending finalization. Response streams are done by now, so this is the last chance to rename it.
-      ///Without this, a complete download could be discarded below as if it were partial.
-      if (!cacheState.isComplete) {
-        await refreshCacheState();
-      }
-
-      if (!config.savePartialCache && !cacheState.isComplete) {
+      if (!config.savePartialCache && ((await refreshCacheState()).remainingBytes ?? -1) > 0) {
         await resetCache();
-      } else if (!config.saveMetadata && cacheState.isComplete) {
-        _cachedResponseHeaders = null;
+      } else if (!config.saveMetadata && (await refreshCacheState()).isComplete) {
         await _fileLock.synchronized(() async {
           if (await files.metadata.exists()) {
             await files.metadata.delete();
@@ -351,13 +338,13 @@ class HttpCacheStream {
     }
   }
 
-  void _setCachedResponseHeaders(CachedResponseHeaders headers) {
+  Future<void> _setCachedResponseHeaders(CachedResponseHeaders headers) {
     if (!config.saveAllHeaders) {
       headers = headers.essentialHeaders();
     }
-    _cachedResponseHeaders = headers;
+    _cachedResponseHeaders = headers; //Set synchronously
 
-    _fileLock.synchronized(() async {
+    return _fileLock.synchronized(() async {
       try {
         await files.metadata.parent.create(recursive: true);
         await files.metadata.writeAsBytes(jsonEncodeToBytes(metadata.toJson()));
@@ -368,19 +355,61 @@ class HttpCacheStream {
   }
 
   Future<CacheState> refreshCacheState() async {
-    CacheState state;
-    try {
-      state = await metadata.cacheState();
-    } catch (e) {
-      state = const CacheState.zero();
-      if (e is InvalidCacheException) {
-        _resetCache(e).ignore();
-      } else {
-        _addError(e, closeRequests: false);
-      }
-    }
+    final state = await _fileLock.synchronized(_cacheFileState);
     _updateCacheState(state);
     return state;
+  }
+
+  Future<CacheState> _cacheFileState() async {
+    assert(_fileLock.locked, 'fileCacheState must be called within _fileLock.synchronized()');
+    final sourceLength = _cachedResponseHeaders?.sourceLength;
+    if (sourceLength == null) return const CacheState.zero();
+
+    try {
+      final completeCacheStat = await files.complete.stat();
+      if (completeCacheStat.type == FileSystemEntityType.file) {
+        InvalidCacheSizeException.validate(sourceUrl, completeCacheStat.size, sourceLength);
+        return CacheState.complete(completeCacheStat.size);
+      }
+    } catch (e) {
+      if (e is InvalidCacheException) {
+        await files.complete.delete().ignoreResult();
+      }
+      _addError(e, closeRequests: false);
+    }
+
+    try {
+      final partialCacheStat = await files.partial.stat();
+
+      if (partialCacheStat.type == FileSystemEntityType.file) {
+        InvalidCacheSizeException.validate(sourceUrl, partialCacheStat.size, sourceLength, partial: true);
+
+        if (partialCacheStat.size == sourceLength) {
+          try {
+            await files.partial.rename(files.complete.path); //Rename the partial cache to the complete cache
+            return CacheState.complete(partialCacheStat.size);
+          } on FileSystemException catch (e) {
+            final completeCacheStat = await files.complete.stat();
+            if (completeCacheStat.type == FileSystemEntityType.file && completeCacheStat.size == sourceLength) {
+              return CacheState.complete(completeCacheStat.size); //Renamed by another process, treat as complete.
+            }
+            //Rename can fail if the file is open by a response stream on Windows.
+            if (lastErrorOrNull is! FileSystemException) {
+              _addError(e, closeRequests: false); //Prevent spamming the error log with repeated rename failures
+            }
+          }
+        }
+
+        return CacheState.incomplete(partialCacheStat.size, sourceLength);
+      }
+    } catch (e) {
+      if (e is InvalidCacheException) {
+        await files.partial.delete().ignoreResult();
+      }
+      _addError(e, closeRequests: false);
+    }
+
+    return const CacheState.zero();
   }
 
   void _updateCacheState(final CacheState cacheState) {

@@ -12,13 +12,11 @@ class InvalidCacheException implements Exception {
 }
 
 class CacheResetException extends InvalidCacheException {
-  const CacheResetException(Uri uri)
-      : super(uri, 'Cache reset by user request');
+  const CacheResetException(Uri uri) : super(uri, 'Cache reset by user request');
 }
 
 class CacheSourceChangedException extends InvalidCacheException {
-  const CacheSourceChangedException(Uri uri)
-      : super(uri, 'Cache source changed');
+  const CacheSourceChangedException(Uri uri) : super(uri, 'Cache source changed');
 }
 
 class HttpRangeException extends InvalidCacheException implements RangeError {
@@ -77,9 +75,11 @@ class InvalidCacheSizeException extends InvalidCacheException {
   static void validate(
     final Uri url,
     final int size,
-    final int expected,
-  ) {
+    final int expected, {
+    final bool partial = false,
+  }) {
     if (size == expected) return;
+    if (partial && size < expected) return;
 
     if (expected == 0 && size == -1) {
       //Accept non-existent cache as valid if expected length is 0

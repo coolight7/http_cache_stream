@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:http_cache_stream/src/etc/extensions/file_extensions.dart';
 
+import '../../etc/extensions/future_extensions.dart';
 import '../../models/cache_config/stream_cache_config.dart';
 import '../../models/cache_files/cache_files.dart';
 import '../../models/exceptions/invalid_cache_exceptions.dart';
@@ -105,31 +106,23 @@ class CacheDownloader {
       try {
         await _sink.close(
           flushBuffer: true,
-          isDone: _downloader
-              .isDone, //If the source did not end, the feed is marked as aborted so readers do not treat it as an end of stream
+          isDone: _downloader.isDone, //If the source did not end, the feed is marked as aborted so readers do not treat it as an end of stream
         ); //Flushes all buffered data and closes the sink
       } catch (e) {
         onError(e);
       }
-      final partialCacheLength = (await _sink.file.stat()).size;
-
-      InvalidCacheSizeException.validate(
-        sourceUrl,
-        partialCacheLength,
-        downloadPosition,
-      );
 
       final sourceLength = _cachedHeaders?.sourceLength ?? (_downloader.isDone ? downloadPosition : null);
-      if (sourceLength != null && partialCacheLength == sourceLength) {
+      if (sourceLength != null && downloadPosition == sourceLength) {
         await onComplete(sourceLength);
       }
     } finally {
-      if (!_completer.isCompleted) {
-        _completer.complete();
-      }
       if (!_sink.isClosed) {
         ///The sink is not closed on invalid cache exception, so we need to close it here
-        _sink.close(flushBuffer: false).ignore();
+        await _sink.close(flushBuffer: false).ignoreResult();
+      }
+      if (!_completer.isCompleted) {
+        _completer.complete();
       }
     }
   }
