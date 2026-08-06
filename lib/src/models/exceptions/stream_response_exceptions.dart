@@ -9,23 +9,18 @@ abstract class StreamResponseException implements Exception {
 }
 
 class StreamResponseCancelledException extends StreamResponseException {
-  const StreamResponseCancelledException()
-      : super('StreamResponse was cancelled');
+  const StreamResponseCancelledException() : super('StreamResponse was cancelled');
 }
 
-class StreamResponseExceededMaxBufferSizeException
-    extends StreamResponseException {
-  const StreamResponseExceededMaxBufferSizeException(int maxBufferSize)
-      : super(
-            'Buffered response data exceeded maxBufferSize of $maxBufferSize bytes.');
+@Deprecated('No longer used, will be removed in future versions')
+class StreamResponseExceededMaxBufferSizeException extends StreamResponseException {
+  const StreamResponseExceededMaxBufferSizeException(int maxBufferSize) : super('Buffered response data exceeded maxBufferSize of $maxBufferSize bytes.');
 }
 
-class StreamRequestTimedOutException extends StreamResponseException
-    implements TimeoutException {
+class StreamRequestTimedOutException extends StreamResponseException implements TimeoutException {
   @override
   final Duration duration;
-  const StreamRequestTimedOutException(this.duration)
-      : super('Stream request timed out after $duration');
+  const StreamRequestTimedOutException(this.duration) : super('Stream request timed out after $duration');
 
   @override
   String toString() {

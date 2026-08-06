@@ -288,7 +288,7 @@ class HttpCacheStream {
         }
       }
 
-      if (!config.savePartialCache && ((await refreshCacheState()).remainingBytes ?? -1) > 0) {
+      if (!config.savePartialCache && !(await refreshCacheState()).isComplete) {
         await resetCache();
       } else if (!config.saveMetadata && (await refreshCacheState()).isComplete) {
         await _fileLock.synchronized(() async {

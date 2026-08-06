@@ -94,12 +94,12 @@ class BufferedIOSink {
       }
       await flush(); //Even if !flushBuffer, ongoing flush must complete before RAF can be closed
     } finally {
+      _buffer.clear();
       if (isDone) {
         _feed._closePositionWaiters();
       } else {
         _feed._failPositionWaiters(PartialCacheAbortedException(_flushedBytes));
       }
-      _buffer.clear();
       if (_openedRAF case final RandomAccessFile raf) {
         _openedRAF = null;
         await raf.close();

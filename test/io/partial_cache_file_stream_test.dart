@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -83,6 +84,42 @@ void main() {
     final result = await resultFuture;
 
     expect(Payload.hash(result), Payload.hash(payload.sublist(4 * 1024)));
+  });
+
+  test('a caught-up open-ended stream completes on a clean close', () async {
+    final payload = Payload.generate(4 * 1024);
+    final sink = BufferedIOSink(cacheFiles.partial, 0);
+    sink.add(payload);
+    await sink.flush();
+
+    final stream = PartialCacheFileStream(
+      StreamRange.validate(0, null, null),
+      cacheFiles,
+      sink.feed,
+    );
+    final firstData = Completer<void>();
+    final done = Completer<void>();
+    final result = <int>[];
+    Object? streamError;
+
+    stream.listen(
+      (data) {
+        result.addAll(data);
+        if (!firstData.isCompleted) firstData.complete();
+      },
+      onError: (Object error) => streamError = error,
+      onDone: done.complete,
+    );
+
+    // Wait until the reader consumes every committed byte and starts waiting
+    // for the feed to advance. A clean producer close must wake that pending
+    // read as EOF, rather than surface the waiter's closed-position error.
+    await firstData.future;
+    await sink.close(isDone: true);
+    await done.future;
+
+    expect(Payload.hash(result), Payload.hash(payload));
+    expect(streamError, isNull);
   });
 
   test('an open-ended stream errors when the download is aborted', () async {

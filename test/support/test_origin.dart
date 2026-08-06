@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -45,6 +46,15 @@ class TestOrigin {
   /// destroys the socket, simulating a mid-stream connection drop. Applies once
   /// then resets to null so a retry can succeed.
   int? dropAfterBytes;
+
+  /// When true, omits Content-Length and sends the response with chunked
+  /// transfer encoding, leaving the source length unknown until completion.
+  bool chunkedTransferEncoding = false;
+
+  /// When set, the response flushes its body and waits for this gate before
+  /// closing. This allows tests to dispose a download before a chunked response
+  /// sends its clean end-of-stream signal.
+  Completer<void>? responseCloseGate;
 
   // ---- Observability ----
 
@@ -118,7 +128,11 @@ class TestOrigin {
     }
 
     final bodyLength = endEx - start;
-    response.headers.contentLength = lyingContentLength ?? bodyLength;
+    if (chunkedTransferEncoding) {
+      response.headers.chunkedTransferEncoding = true;
+    } else {
+      response.headers.contentLength = lyingContentLength ?? bodyLength;
+    }
 
     if (request.method == 'HEAD') {
       await response.close();
@@ -138,6 +152,10 @@ class TestOrigin {
     }
 
     response.add(body);
+    if (responseCloseGate case final gate?) {
+      await response.flush();
+      await gate.future;
+    }
     await response.close();
   }
 
