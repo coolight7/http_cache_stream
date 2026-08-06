@@ -47,8 +47,7 @@ class HttpCacheManager {
 
     final existingStream = _streams[requestKey];
     if (existingStream != null && !existingStream.isDisposed) {
-      existingStream
-          .retain(); //Retain the stream to prevent it from being disposed while in use
+      existingStream.retain(); //Retain the stream to prevent it from being disposed while in use
       return existingStream;
     }
 
@@ -72,7 +71,9 @@ class HttpCacheManager {
 
     ///Remove when stream is disposed
     cacheStream.future.onComplete(() {
-      _streams.remove(requestKey);
+      if (identical(_streams[requestKey], cacheStream)) {
+        _streams.remove(requestKey);
+      }
     });
 
     if (_onStreamCreated case final streamCreatedCallback?) {
@@ -122,8 +123,7 @@ class HttpCacheManager {
     for (final stream in allStreams) {
       activeFilePaths.addAll(stream.metadata.cacheFiles.paths);
     }
-    await for (final entry
-        in cacheDir.list(recursive: true, followLinks: false)) {
+    await for (final entry in cacheDir.list(recursive: true, followLinks: false)) {
       if (entry is File && !activeFilePaths.contains(entry.path)) {
         yield entry;
       }
@@ -153,8 +153,7 @@ class HttpCacheManager {
 
   ///Get the [CacheMetadata] for the given URL or input [cacheFile]. Returns null if the metadata does not exist.
   CacheMetadata? getCacheMetadata(Uri url, [File? cacheFile]) {
-    return getExistingStream(url)?.metadata ??
-        CacheMetadata.fromCacheFiles(_resolveCacheFiles(url, cacheFile));
+    return getExistingStream(url)?.metadata ?? CacheMetadata.fromCacheFiles(_resolveCacheFiles(url, cacheFile));
   }
 
   ///Gets [CacheFiles] for the given URL or input [cacheFile]. Does not check if any cache files exists.
@@ -173,8 +172,7 @@ class HttpCacheManager {
   CacheFiles _resolveCacheFiles(Uri sourceUrl, [File? cacheFile]) {
     if (cacheFile == null) {
       sourceUrl = _server.decodeSourceUrl(sourceUrl) ?? sourceUrl;
-      cacheFile = _customCacheFiles[sourceUrl.requestKey] ??
-          config.cacheFileResolver(config.cacheDirectory, sourceUrl);
+      cacheFile = _customCacheFiles[sourceUrl.requestKey] ?? config.cacheFileResolver(config.cacheDirectory, sourceUrl);
     }
     return CacheFiles.fromFile(cacheFile);
   }
@@ -243,8 +241,7 @@ class HttpCacheManager {
       try {
         final cacheConfig = config ??
             GlobalCacheConfig(
-              cacheDirectory:
-                  cacheDir ?? await GlobalCacheConfig.defaultCacheDirectory(),
+              cacheDirectory: cacheDir ?? await GlobalCacheConfig.defaultCacheDirectory(),
               customHttpClient: customHttpClient,
             );
         final httpCacheServer = await LocalCacheServer.init(port: port);
