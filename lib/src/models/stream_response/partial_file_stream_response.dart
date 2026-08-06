@@ -28,10 +28,11 @@ class PartialFileStreamResponse extends StreamResponse {
     final CachedResponseHeaders responseHeaders,
     final PartialCacheFeed feed,
   ) {
+    final streamRange = StreamRange(range, responseHeaders.sourceLength);
     return PartialFileStreamResponse._(
-      range,
+      streamRange.range,
       responseHeaders,
-      StreamRange(range, responseHeaders.sourceLength),
+      streamRange,
       cacheFiles,
       feed,
     );

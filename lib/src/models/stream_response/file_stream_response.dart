@@ -20,7 +20,7 @@ class FileStreamResponse extends StreamResponse {
         StreamRange(range, responseHeaders.sourceLength); //Validate range
     return FileStreamResponse._(
       CacheFileStream(streamRange, cacheFiles),
-      range,
+      streamRange.range,
       responseHeaders,
     );
   }

@@ -53,6 +53,52 @@ void main() {
     await stream.dispose();
   });
 
+  test('a satisfiable range with an oversized end is clamped', () async {
+    final source = h.origin.url('/media/clip.mp3');
+    final stream = h.manager.createStream(source);
+    await stream.download();
+    final total = h.origin.payload.length;
+    final start = total - 100;
+
+    final res = await h.fetch(
+      h.manager.getCacheUrl(source),
+      range: 'bytes=$start-${total + 1000}',
+    );
+    expect(res.statusCode, 206);
+    expect(res.header('content-range'), 'bytes $start-${total - 1}/$total');
+    expect(res.body.length, 100);
+
+    await stream.dispose();
+  });
+
+  test('an uncached satisfiable range with an oversized end is clamped',
+      () async {
+    final total = h.origin.payload.length;
+    final start = total - 100;
+
+    final res = await h.fetch(
+      h.manager.getCacheUrl(h.origin.url('/media/uncached-clip.mp3')),
+      range: 'bytes=$start-${total + 1000}',
+    );
+    expect(res.statusCode, 206);
+    expect(res.header('content-range'), 'bytes $start-${total - 1}/$total');
+    expect(res.body.length, 100);
+  });
+
+  test('a split origin range with an oversized end is clamped', () async {
+    h.manager.config.rangeRequestSplitThreshold = 1;
+    final total = h.origin.payload.length;
+    final start = total - 100;
+
+    final res = await h.fetch(
+      h.manager.getCacheUrl(h.origin.url('/media/split-clip.mp3')),
+      range: 'bytes=$start-${total + 1000}',
+    );
+    expect(res.statusCode, 206);
+    expect(res.header('content-range'), 'bytes $start-${total - 1}/$total');
+    expect(res.body.length, 100);
+  });
+
   test('HEAD returns headers with an empty body', () async {
     final cacheUrl = h.manager.getCacheUrl(h.origin.url('/media/clip.mp3'));
     final res = await h.fetch(cacheUrl, method: 'HEAD');

@@ -33,8 +33,10 @@ void main() {
       expect(() => IntRange.validate(10, null, 5), throwsRangeError);
     });
 
-    test('end beyond max throws', () {
-      expect(() => IntRange.validate(0, 600, 500), throwsRangeError);
+    test('end beyond max is clamped when the start is satisfiable', () {
+      final r = IntRange.validate(100, 600, 500);
+      expect(r.start, 100);
+      expect(r.end, 500);
     });
   });
 

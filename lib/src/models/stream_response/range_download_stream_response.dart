@@ -18,9 +18,15 @@ class RangeDownloadStreamResponse extends StreamResponse {
     final StreamCacheConfig config,
   ) async {
     final downloadStream = await DownloadStream.open(url, range, config);
+    final responseHeaders = downloadStream.responseHeaders;
+    final responseRange = IntRange.validate(
+      range.start,
+      range.end,
+      responseHeaders.sourceLength,
+    );
     return RangeDownloadStreamResponse._(
-      range,
-      downloadStream.responseHeaders,
+      responseRange,
+      responseHeaders,
       downloadStream,
       config.minChunkSize,
     );

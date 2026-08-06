@@ -36,7 +36,13 @@ abstract class HttpRange {
       return false;
     }
     if (previous.end != null && next.end != null) {
-      if (previous.end != next.end) return false;
+      if (previous.end != next.end) {
+        final sourceLength = next.sourceLength;
+        final isClampedToSourceEnd = sourceLength != null &&
+            previous.end! >= sourceLength &&
+            next.end == sourceLength - 1;
+        if (!isClampedToSourceEnd) return false;
+      }
     }
     if (previous.sourceLength != null && next.sourceLength != null) {
       if (previous.sourceLength != next.sourceLength) return false;
