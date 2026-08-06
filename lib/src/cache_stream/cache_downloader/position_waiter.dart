@@ -55,9 +55,6 @@ final class _CompletedPositionWaiter extends PositionWaiter {
 }
 
 /// A [PositionWaiter] tracked by a [PartialCacheFeed] until it resolves.
-///
-/// Uses a synchronous completer so a waiter is resumed within the same event
-/// loop as the write that satisfied it, rather than a microtask later.
 final class _PendingPositionWaiter extends PositionWaiter {
   final PartialCacheFeed _feed;
   final _completer = Completer<void>();
