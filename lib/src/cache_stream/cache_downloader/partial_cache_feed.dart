@@ -7,13 +7,14 @@ part of 'buffered_io_sink.dart';
 /// poll the file system.
 abstract class PartialCacheFeed {
   final List<_PendingPositionWaiter> _positionWaiters = [];
+  bool _isClosed = false;
   Object? _failure;
 
   /// The exclusive end position currently safe to read from the cache file.
   int get position;
 
   /// Whether the producer can no longer commit additional bytes.
-  bool get isClosed;
+  bool get isClosed => _isClosed;
 
   /// The error this feed ended with, or null if it is still open or reached the
   /// end of its content cleanly.
@@ -52,23 +53,31 @@ abstract class PartialCacheFeed {
     return waiter;
   }
 
-  static StateError _closedError(final int minPosition) => StateError(
-        'Partial cache feed closed before reaching position $minPosition',
-      );
+  static PartialCacheFeedClosedException _closedError(
+    final int minPosition,
+  ) =>
+      PartialCacheFeedClosedException(minPosition);
 
-  /// Resolves the waiters left pending when the producer reached the end of its
-  /// content.
+  /// Closes the feed and resolves every waiter the producer can no longer
+  /// satisfy.
   ///
-  /// The feed is not marked as failed: [position] is the true end of the
-  /// content, so a reader that does not know the content length has reached the
-  /// end of the stream. Only waiters past that end are failed, since they can
-  /// no longer be satisfied.
-  void _closePositionWaiters() {
+  /// Without a [failure], [position] is the true end of the content. With a
+  /// [failure], the producer stopped short and readers must not interpret the
+  /// final position as a clean end of stream.
+  void _close({final Object? failure}) {
+    if (_isClosed) return;
+    _isClosed = true;
+    if (failure != null) {
+      _failure = failure;
+    }
+
     if (_positionWaiters.isEmpty) return;
     final waiters = List<_PendingPositionWaiter>.of(_positionWaiters);
     _positionWaiters.clear();
     for (final waiter in waiters) {
-      waiter._completeError(_closedError(waiter.minPosition));
+      waiter._completeError(
+        _failure ?? _closedError(waiter.minPosition),
+      );
     }
   }
 
@@ -91,6 +100,22 @@ abstract class PartialCacheFeed {
       waiter._completeError(_failure!);
     }
   }
+}
+
+/// Thrown when a cleanly closed [PartialCacheFeed] cannot reach a requested
+/// position.
+///
+/// Readers without a known end position may interpret this as end of content.
+/// Readers with a requested end must retain the error because the feed ended
+/// before satisfying their range.
+class PartialCacheFeedClosedException extends StateError {
+  /// The position the closed feed could not reach.
+  final int minPosition;
+
+  PartialCacheFeedClosedException(this.minPosition)
+      : super(
+          'Partial cache feed closed before reaching position $minPosition',
+        );
 }
 
 /// Thrown when a [PartialCacheFeed] stops before reaching the end of its

@@ -122,6 +122,27 @@ void main() {
     expect(streamError, isNull);
   });
 
+  test('a bounded stream errors when a clean feed closes before its end',
+      () async {
+    final payload = Payload.generate(4 * 1024);
+    final sink = BufferedIOSink(cacheFiles.partial, 0);
+    sink.add(payload);
+    await sink.flush();
+
+    final stream = PartialCacheFileStream(
+      StreamRange.validate(0, 8 * 1024, 8 * 1024),
+      cacheFiles,
+      sink.feed,
+    );
+    final expectation = expectLater(
+      stream.expand((bytes) => bytes).toList(),
+      throwsA(isA<PartialCacheFeedClosedException>()),
+    );
+
+    await sink.close(isDone: true);
+    await expectation;
+  });
+
   test('an open-ended stream errors when the download is aborted', () async {
     final payload = Payload.generate(80 * 1024);
     final sink = BufferedIOSink(cacheFiles.partial, 0);

@@ -124,6 +124,10 @@ class _PartialCacheFileReader {
       }
     } on PositionWaiterCancelledException {
 //Canceled while waiting for the feed to advance; the listener is gone, so exit the read loop.
+    } on PartialCacheFeedClosedException catch (e, stackTrace) {
+      if (requestedEnd != null && !_isDone) {
+        _controller.addError(e, stackTrace);
+      }
     } catch (e, stackTrace) {
       if (!_isDone) {
         _controller.addError(e, stackTrace);

@@ -7,7 +7,4 @@ final class BufferedIOSinkFeed extends PartialCacheFeed {
 
   @override
   int get position => _sink.flushedBytes;
-
-  @override
-  bool get isClosed => _sink.isClosed && _sink.flushed;
 }
