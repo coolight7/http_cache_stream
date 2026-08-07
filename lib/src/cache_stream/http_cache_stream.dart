@@ -409,7 +409,6 @@ class HttpCacheStream {
       }
     } catch (e) {
       if (e is InvalidCacheException) {
-        await files.partial.delete().ignoreResult();
         cacheException = e;
       }
       _addError(e, closeRequests: false);
@@ -417,7 +416,10 @@ class HttpCacheStream {
 
     if (cacheException != null && _cacheDownloader?.isClosed != false) {
       _cachedResponseHeaders = null; //Reset cached headers if the cache is invalid
-      await files.metadata.delete().ignoreResult();
+      await files.delete(partialOnly: false).ignoreResult();
+      if (_queuedRequests.isNotEmpty && !isDownloading && isRetained) {
+        download().ignore(); //Restart download to fulfill pending requests
+      }
     }
 
     return const CacheState.zero();
