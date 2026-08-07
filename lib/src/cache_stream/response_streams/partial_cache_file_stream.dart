@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 
 import '../../models/cache_files/cache_files.dart';
+import '../../models/exceptions/partial_cache_feed_exceptions.dart';
 import '../../models/stream_response/stream_response_range.dart';
 import '../cache_downloader/buffered_io_sink.dart';
 

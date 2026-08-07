@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../../models/exceptions/partial_cache_feed_exceptions.dart';
+
 part 'buffered_io_sink_feed.dart';
 part 'partial_cache_feed.dart';
 part 'position_waiter.dart';

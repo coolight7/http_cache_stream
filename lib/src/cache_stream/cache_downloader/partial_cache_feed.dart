@@ -44,7 +44,7 @@ abstract class PartialCacheFeed {
     if (isClosed) {
       return _CompletedPositionWaiter.failed(
         minPosition,
-        _closedError(minPosition),
+        PartialCacheFeedClosedException(minPosition),
       );
     }
 
@@ -52,11 +52,6 @@ abstract class PartialCacheFeed {
     _positionWaiters.add(waiter);
     return waiter;
   }
-
-  static PartialCacheFeedClosedException _closedError(
-    final int minPosition,
-  ) =>
-      PartialCacheFeedClosedException(minPosition);
 
   /// Closes the feed and resolves every waiter the producer can no longer
   /// satisfy.
@@ -74,7 +69,7 @@ abstract class PartialCacheFeed {
     _positionWaiters.clear();
     for (final waiter in waiters) {
       waiter._completeError(
-        _failure ?? _closedError(waiter.minPosition),
+        _failure ?? PartialCacheFeedClosedException(waiter.minPosition),
       );
     }
   }
@@ -98,35 +93,4 @@ abstract class PartialCacheFeed {
       waiter._completeError(_failure!);
     }
   }
-}
-
-/// Thrown when a cleanly closed [PartialCacheFeed] cannot reach a requested
-/// position.
-///
-/// Readers without a known end position may interpret this as end of content.
-/// Readers with a requested end must retain the error because the feed ended
-/// before satisfying their range.
-class PartialCacheFeedClosedException extends StateError {
-  /// The position the closed feed could not reach.
-  final int minPosition;
-
-  PartialCacheFeedClosedException(this.minPosition)
-      : super(
-          'Partial cache feed closed before reaching position $minPosition',
-        );
-}
-
-/// Thrown when a [PartialCacheFeed] stops before reaching the end of its
-/// content, because the download that fills it was aborted.
-///
-/// Distinguishes an aborted download from a clean end of content, which readers
-/// that do not know the content length cannot tell apart from [position] alone.
-class PartialCacheAbortedException implements Exception {
-  /// The position the feed stopped at.
-  final int position;
-  const PartialCacheAbortedException(this.position);
-
-  @override
-  String toString() => 'PartialCacheAbortedException: Download aborted at position $position, '
-      'before the end of the content';
 }

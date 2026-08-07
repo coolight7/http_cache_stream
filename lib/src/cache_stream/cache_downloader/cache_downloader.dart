@@ -10,7 +10,7 @@ import '../../models/metadata/cache_metadata.dart';
 import '../../models/metadata/cached_response_headers.dart';
 import '../../models/stream_requests/int_range.dart';
 import '../../models/stream_requests/stream_request.dart';
-import '../../models/stream_response/stream_response.dart';
+import '../../models/stream_response/partial_file_stream_response.dart';
 import 'buffered_io_sink.dart';
 import 'downloader.dart';
 
@@ -160,7 +160,7 @@ class CacheDownloader {
     }
 
     request.complete(
-      () => StreamResponse.fromPartialFile(
+      () => PartialFileStreamResponse(
         request.range,
         _cacheFiles,
         headers,

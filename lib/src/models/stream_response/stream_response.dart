@@ -1,16 +1,9 @@
 import 'dart:async';
 
-import '../../cache_stream/cache_downloader/buffered_io_sink.dart';
-import '../cache_config/stream_cache_config.dart';
-import '../cache_files/cache_files.dart';
 import '../metadata/cached_response_headers.dart';
 import '../stream_requests/int_range.dart';
-import 'file_stream_response.dart';
-import 'header_stream_response.dart';
-import 'partial_file_stream_response.dart';
-import 'range_download_stream_response.dart';
 
-/// Represents a response from the cache manager.
+/// Represents a response from a [HttpCacheStream].
 abstract class StreamResponse {
   /// The byte range of the response.
   final IntRange range;
@@ -27,46 +20,6 @@ abstract class StreamResponse {
 
   /// The total length of the source content, if known.
   int? get sourceLength => sourceHeaders.sourceLength;
-
-  factory StreamResponse.headersOnly(
-    final IntRange range,
-    final CachedResponseHeaders responseHeaders,
-  ) {
-    return HeaderStreamResponse(range, responseHeaders);
-  }
-
-  /// Creates a [StreamResponse] from a remote download.
-  static Future<StreamResponse> fromDownload(
-    final Uri url,
-    final IntRange range,
-    final StreamCacheConfig config,
-  ) {
-    return RangeDownloadStreamResponse.construct(url, range, config);
-  }
-
-  /// Creates a [StreamResponse] from a cached file.
-  factory StreamResponse.fromFile(
-    final IntRange range,
-    final CacheFiles cacheFiles,
-    final CachedResponseHeaders responseHeaders,
-  ) {
-    return FileStreamResponse(range, cacheFiles, responseHeaders);
-  }
-
-  /// Creates a [StreamResponse] from a cache file that is still being written.
-  factory StreamResponse.fromPartialFile(
-    final IntRange range,
-    final CacheFiles cacheFiles,
-    final CachedResponseHeaders responseHeaders,
-    final PartialCacheFeed feed,
-  ) {
-    return PartialFileStreamResponse(
-      range,
-      cacheFiles,
-      responseHeaders,
-      feed,
-    );
-  }
 
   ///The length of the content in the response. This may be different from the source length.
   int? get contentLength {

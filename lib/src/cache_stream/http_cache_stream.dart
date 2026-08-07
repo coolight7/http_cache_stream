@@ -21,7 +21,9 @@ import '../models/exceptions/state_errors.dart';
 import '../models/exceptions/stream_response_exceptions.dart';
 import '../models/metadata/cache_metadata.dart';
 import '../models/stream_requests/stream_request.dart';
+import '../models/stream_response/file_stream_response.dart';
 import '../models/stream_response/header_stream_response.dart';
+import '../models/stream_response/range_download_stream_response.dart';
 import '../models/stream_response/stream_response.dart';
 
 /// A stream that handles downloading, caching, and serving content.
@@ -96,13 +98,13 @@ class HttpCacheStream {
     if (responseHeaders != null && cacheState.isComplete) {
       final verifiedCacheState = await refreshCacheState();
       if (verifiedCacheState.isComplete) {
-        return StreamResponse.fromFile(range, files, responseHeaders);
+        return FileStreamResponse(range, files, responseHeaders);
       }
     }
 
     final rangeThreshold = config.rangeRequestSplitThreshold;
     if (rangeThreshold != null && range.start >= rangeThreshold && (range.start - cachePosition) >= rangeThreshold) {
-      return StreamResponse.fromDownload(sourceUrl, range, config);
+      return RangeDownloadStreamResponse.construct(sourceUrl, range, config);
     }
 
     if (!isDownloading) {
@@ -432,7 +434,7 @@ class HttpCacheStream {
 
     if (_queuedRequests.isNotEmpty && headers != null) {
       _queuedRequests.processAndRemove((request) {
-        request.complete(() => StreamResponse.fromFile(request.range, files, headers!));
+        request.complete(() => FileStreamResponse(request.range, files, headers!));
       });
     }
 

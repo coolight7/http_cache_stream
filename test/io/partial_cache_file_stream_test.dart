@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:http_cache_stream/src/cache_stream/cache_downloader/buffered_io_sink.dart';
 import 'package:http_cache_stream/src/cache_stream/response_streams/partial_cache_file_stream.dart';
+import 'package:http_cache_stream/src/models/stream_response/partial_file_stream_response.dart';
 import 'package:http_cache_stream/src/models/stream_response/stream_response_range.dart';
 
 import '../support/payload.dart';
@@ -122,8 +123,7 @@ void main() {
     expect(streamError, isNull);
   });
 
-  test('a bounded stream errors when a clean feed closes before its end',
-      () async {
+  test('a bounded stream errors when a clean feed closes before its end', () async {
     final payload = Payload.generate(4 * 1024);
     final sink = BufferedIOSink(cacheFiles.partial, 0);
     sink.add(payload);
@@ -189,7 +189,7 @@ void main() {
         headers: {HttpHeaders.contentLengthHeader: '${payload.length}'},
       ),
     );
-    final response = StreamResponse.fromPartialFile(
+    final response = PartialFileStreamResponse(
       const IntRange(8 * 1024, 80 * 1024),
       cacheFiles,
       headers,
