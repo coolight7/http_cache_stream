@@ -9,8 +9,7 @@ import 'stream_response.dart';
 class RangeDownloadStreamResponse extends StreamResponse {
   final DownloadStream _downloadStream;
   final int _minChunkSize;
-  const RangeDownloadStreamResponse._(super.range, super.responseHeaders,
-      this._downloadStream, this._minChunkSize);
+  const RangeDownloadStreamResponse._(super.range, super.responseHeaders, this._downloadStream, this._minChunkSize);
 
   static Future<RangeDownloadStreamResponse> construct(
     final Uri url,
@@ -18,18 +17,25 @@ class RangeDownloadStreamResponse extends StreamResponse {
     final StreamCacheConfig config,
   ) async {
     final downloadStream = await DownloadStream.open(url, range, config);
-    final responseHeaders = downloadStream.responseHeaders;
-    final responseRange = IntRange.validate(
-      range.start,
-      range.end,
-      responseHeaders.sourceLength,
-    );
-    return RangeDownloadStreamResponse._(
-      responseRange,
-      responseHeaders,
-      downloadStream,
-      config.minChunkSize,
-    );
+
+    try {
+      final responseHeaders = downloadStream.responseHeaders;
+      final responseRange = IntRange.validate(
+        range.start,
+        range.end,
+        responseHeaders.sourceLength,
+      );
+      return RangeDownloadStreamResponse._(
+        responseRange,
+        responseHeaders,
+        downloadStream,
+        config.minChunkSize,
+      );
+    } catch (_) {
+      // If an error occurs during range validation and construction, cancel the download stream to free resources.
+      downloadStream.cancel();
+      rethrow;
+    }
   }
 
   @override
