@@ -193,7 +193,7 @@ class HttpCacheStream {
         ///The content is fully downloaded, but the cache file could not be renamed because a response stream still holds the partial cache file open.
         ///There is nothing left to download; wait for it to be released, then let [refreshCacheState] rename it.
         if (state.sourceLength case final int sourceLength when state.position >= sourceLength) {
-          await Future.delayed(const Duration(seconds: 2));
+          await Future.delayed(const Duration(seconds: 10));
           continue;
         }
 

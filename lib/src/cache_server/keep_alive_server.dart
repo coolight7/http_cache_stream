@@ -28,13 +28,11 @@ class KeepAliveServer {
     _forwardEvents(_server);
 
     if (healthCheckInterval != null && healthCheckInterval > Duration.zero) {
-      _healthCheckTimer =
-          Timer.periodic(healthCheckInterval, (_) => ensureActive().ignore());
+      _healthCheckTimer = Timer.periodic(healthCheckInterval, (_) => ensureActive().ignore());
     }
   }
 
-  static Future<KeepAliveServer> bind(Object address, int port,
-      {Duration? healthCheckInterval}) async {
+  static Future<KeepAliveServer> bind(Object address, int port, {Duration? healthCheckInterval}) async {
     healthCheckInterval ??= Platform.isIOS ? defaultHealthCheckInterval : null;
     final server = await HttpServer.bind(address, port, shared: true);
     return KeepAliveServer._(server, healthCheckInterval: healthCheckInterval);
@@ -42,15 +40,13 @@ class KeepAliveServer {
 
   void _forwardEvents(HttpServer server) {
     _serverSubscription?.cancel();
-    _serverSubscription = server.listen(_controller.add,
-        onError: _controller.addError, cancelOnError: false);
+    _serverSubscription = server.listen(_controller.add, onError: _controller.addError, cancelOnError: false);
   }
 
   Future<bool> isAlive() async {
     if (_closed) return false;
     try {
-      final socket = await Socket.connect(address, port,
-          timeout: const Duration(milliseconds: 500));
+      final socket = await Socket.connect(address, port, timeout: const Duration(milliseconds: 500));
       socket.destroy();
       return true;
     } catch (_) {
@@ -67,7 +63,6 @@ class KeepAliveServer {
         if (_closed) return;
 
         final prevServer = _server;
-        _serverSubscription?.cancel();
 
         _server = await HttpServer.bind(address, port, shared: true);
         _forwardEvents(_server);
@@ -79,13 +74,8 @@ class KeepAliveServer {
     }();
   }
 
-  StreamSubscription<HttpRequest> listen(
-      void Function(HttpRequest event)? onData,
-      {Function? onError,
-      void Function()? onDone,
-      bool? cancelOnError}) {
-    return _controller.stream.listen(onData,
-        onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+  StreamSubscription<HttpRequest> listen(void Function(HttpRequest event)? onData, {Function? onError, void Function()? onDone, bool? cancelOnError}) {
+    return _controller.stream.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   }
 
   Future<void> close({bool force = false}) async {

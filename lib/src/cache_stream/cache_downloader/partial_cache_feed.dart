@@ -67,9 +67,7 @@ abstract class PartialCacheFeed {
   void _close({final Object? failure}) {
     if (_isClosed) return;
     _isClosed = true;
-    if (failure != null) {
-      _failure = failure;
-    }
+    _failure ??= failure;
 
     if (_positionWaiters.isEmpty) return;
     final waiters = List<_PendingPositionWaiter>.of(_positionWaiters);
@@ -129,7 +127,6 @@ class PartialCacheAbortedException implements Exception {
   const PartialCacheAbortedException(this.position);
 
   @override
-  String toString() =>
-      'PartialCacheAbortedException: Download aborted at position $position, '
+  String toString() => 'PartialCacheAbortedException: Download aborted at position $position, '
       'before the end of the content';
 }
