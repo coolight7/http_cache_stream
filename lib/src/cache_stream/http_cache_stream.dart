@@ -422,9 +422,10 @@ class HttpCacheStream {
       if (_queuedRequests.isNotEmpty && !isDownloading && isRetained) {
         Timer.run(() => download().ignore());
       }
+      return const CacheState.zero();
     }
 
-    return const CacheState.zero();
+    return CacheState.incomplete(0, sourceLength);
   }
 
   void _updateCacheState(final CacheState cacheState) {

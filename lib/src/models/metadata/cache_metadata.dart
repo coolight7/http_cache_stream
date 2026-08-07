@@ -65,7 +65,7 @@ class CacheMetadata {
       return CacheState.incomplete(partialCachStat.size, sourceLength);
     }
 
-    return const CacheState.zero();
+    return CacheState.incomplete(0, sourceLength);
   }
 
   ///Returns true if the cache is complete. Returns false if the cache is incomplete or does not exist.
