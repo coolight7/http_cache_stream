@@ -1,4 +1,4 @@
-/// Thrown when a cleanly closed [PartialCacheFeed] cannot reach a requested
+/// Thrown when a cleanly closed cache download cannot reach a requested
 /// position.
 ///
 /// Readers without a known end position may interpret this as end of content.
@@ -14,7 +14,7 @@ class PartialCacheFeedClosedException extends StateError {
         );
 }
 
-/// Thrown when a [PartialCacheFeed] stops before reaching the end of its
+/// Thrown when a cache download stops before reaching the end of its
 /// content, because the download that fills it was aborted.
 ///
 /// Distinguishes an aborted download from a clean end of content, which readers

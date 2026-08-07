@@ -415,7 +415,7 @@ class HttpCacheStream {
       _addError(e, closeRequests: false);
     }
 
-    if (cacheException != null) {
+    if (cacheException != null && _cacheDownloader?.isClosed != false) {
       _cachedResponseHeaders = null; //Reset cached headers if the cache is invalid
       await files.metadata.delete().ignoreResult();
     }
