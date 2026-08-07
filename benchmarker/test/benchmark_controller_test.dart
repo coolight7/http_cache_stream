@@ -58,10 +58,7 @@ void main() {
         await request.response.close();
       }
     }());
-    // Addressed as `localhost` rather than the bound `127.0.0.1` so the source
-    // host differs from the cache server's host; otherwise http_cache_stream
-    // treats the source URL as an already-encoded cache URL.
-    sourceUrl = Uri.parse('http://localhost:${origin.port}/payload.bin');
+    sourceUrl = Uri.parse('http://127.0.0.1:${origin.port}/payload.bin');
 
     cacheDir = await Directory.systemTemp.createTemp('benchmarker_test');
     await HttpCacheManager.init(
@@ -115,8 +112,7 @@ void main() {
     expect(cacheDir.listSync(), isEmpty);
   });
 
-  test('pre-cached run serves every request from the completed cache',
-      () async {
+  test('pre-cached run serves every request from the completed cache', () async {
     await controller.start(configFor(BenchmarkType.preCached));
 
     expect(controller.phase, BenchmarkPhase.finished);
@@ -174,8 +170,7 @@ void main() {
     );
   });
 
-  test('pre-cached run serves the selected byte range from the cache',
-      () async {
+  test('pre-cached run serves the selected byte range from the cache', () async {
     const range = ByteRange(4096, 8191);
     await controller.start(
       configFor(BenchmarkType.preCached, rangePlan: RangePlan.fixed(range)),
@@ -213,10 +208,11 @@ void main() {
     // Every window is the same size and together they cover the payload once.
     expect(stats.totalBytes, payload.length);
     expect(stats.avgBytesPerRequest, plan.windowSize.toDouble());
-    expect(receivedRanges..sort(), [
-      for (var sequence = 0; sequence < 8; sequence++)
-        plan.windowFor(sequence).header,
-    ]..sort());
+    expect(
+        receivedRanges..sort(),
+        [
+          for (var sequence = 0; sequence < 8; sequence++) plan.windowFor(sequence).header,
+        ]..sort());
     expect(
       controller.logs.map((entry) => entry.message),
       contains(contains('Sequential windows: 8 ×')),
@@ -300,8 +296,7 @@ void main() {
     expect(controller.selectedResult!.isComplete, isTrue);
   });
 
-  test('the worker pool is reused between runs with the same settings',
-      () async {
+  test('the worker pool is reused between runs with the same settings', () async {
     await controller.start(configFor(BenchmarkType.direct, total: 2));
     await controller.start(configFor(BenchmarkType.direct, total: 2));
 

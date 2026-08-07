@@ -74,11 +74,7 @@ class TestOrigin {
   String? lastRangeHeader;
   final List<String?> rangeHeaders = [];
 
-  // Reported as `localhost` (not the bound `127.0.0.1`) so the source host
-  // differs from the cache server's loopback host; otherwise the package treats
-  // the source URL as an already-encoded cache URL. `localhost` still resolves
-  // to loopback where the origin is listening.
-  Uri get baseUri => Uri(scheme: 'http', host: 'localhost', port: _server.port);
+  Uri get baseUri => Uri(scheme: 'http', host: '127.0.0.1', port: _server.port);
 
   /// A source URL on this origin for the given [path] (e.g. `/media/file.mp3`).
   Uri url(String path) => baseUri.replace(path: path);
@@ -167,10 +163,7 @@ class TestOrigin {
 
     final bodyGate = responseBodyGate;
     final bodyGateAfterBytes = responseBodyGateAfterBytes;
-    if (bodyGate != null &&
-        bodyGateAfterBytes != null &&
-        bodyGateAfterBytes > 0 &&
-        bodyGateAfterBytes < body.length) {
+    if (bodyGate != null && bodyGateAfterBytes != null && bodyGateAfterBytes > 0 && bodyGateAfterBytes < body.length) {
       response.add(Uint8List.sublistView(body, 0, bodyGateAfterBytes));
       await response.flush();
       await bodyGate.future;
@@ -197,8 +190,7 @@ class TestOrigin {
       response.headers.set(HttpHeaders.etagHeader, etag!);
     }
     if (lastModified != null) {
-      response.headers
-          .set(HttpHeaders.lastModifiedHeader, HttpDate.format(lastModified!));
+      response.headers.set(HttpHeaders.lastModifiedHeader, HttpDate.format(lastModified!));
     }
     if (cacheControl != null) {
       response.headers.set(HttpHeaders.cacheControlHeader, cacheControl!);
