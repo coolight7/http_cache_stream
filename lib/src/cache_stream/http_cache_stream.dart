@@ -334,7 +334,8 @@ class HttpCacheStream {
           _addError(e, closeRequests: false);
         } finally {
           if (_queuedRequests.isNotEmpty && !isDownloading && isRetained) {
-            download().ignore(); //Restart download to fulfill pending requests
+            //Restart download to fulfill pending requests
+            Timer.run(() => download().ignore()); //Use Timer.run to avoid calling download() within the lock
           }
         }
       });
@@ -419,7 +420,7 @@ class HttpCacheStream {
       _cachedResponseHeaders = null; //Reset cached headers if the cache is invalid
       await files.delete(partialOnly: false).ignoreResult();
       if (_queuedRequests.isNotEmpty && !isDownloading && isRetained) {
-        download().ignore(); //Restart download to fulfill pending requests
+        Timer.run(() => download().ignore());
       }
     }
 
