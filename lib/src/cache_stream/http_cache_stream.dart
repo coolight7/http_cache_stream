@@ -365,6 +365,8 @@ class HttpCacheStream {
     final sourceLength = _cachedResponseHeaders?.sourceLength;
     if (sourceLength == null) return const CacheState.zero();
 
+    InvalidCacheException? cacheException;
+
     try {
       final completeCacheStat = await files.complete.stat();
       if (completeCacheStat.type == FileSystemEntityType.file) {
@@ -374,6 +376,7 @@ class HttpCacheStream {
     } catch (e) {
       if (e is InvalidCacheException) {
         await files.complete.delete().ignoreResult();
+        cacheException = e;
       }
       _addError(e, closeRequests: false);
     }
@@ -405,8 +408,14 @@ class HttpCacheStream {
     } catch (e) {
       if (e is InvalidCacheException) {
         await files.partial.delete().ignoreResult();
+        cacheException = e;
       }
       _addError(e, closeRequests: false);
+    }
+
+    if (cacheException != null) {
+      _cachedResponseHeaders = null; //Reset cached headers if the cache is invalid
+      await files.metadata.delete().ignoreResult();
     }
 
     return const CacheState.zero();
