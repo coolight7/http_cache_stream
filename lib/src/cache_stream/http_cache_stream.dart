@@ -227,6 +227,7 @@ class HttpCacheStream {
         } catch (e) {
           if (e is InvalidCacheException) {
             await _resetCache(e);
+            if (isRetained) continue; //Retry download after resetting cache
           } else {
             _addError(e, closeRequests: true);
           }
