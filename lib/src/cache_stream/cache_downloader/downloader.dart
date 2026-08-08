@@ -52,7 +52,7 @@ class Downloader {
             final readTimeout = streamConfig.readTimeout;
             await _pauseCounter.onResume.timeout(readTimeout,
                 onTimeout: () =>
-                    throw ReadTimedOutException(sourceUrl, readTimeout));
+                    throw DownloadPausedException(sourceUrl, readTimeout));
           }
           checkActive();
           onHeaders(downloadStream.responseHeaders);
@@ -70,6 +70,8 @@ class Downloader {
             rethrow;
           } else if (!isActive) {
             break;
+          } else if (e is DownloadPausedException) {
+            await _pauseCounter.onResume;
           } else {
             onError(e);
             await (_pauseCounter.isPaused

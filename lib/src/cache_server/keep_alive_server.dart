@@ -67,7 +67,6 @@ class KeepAliveServer {
         if (_closed) return;
 
         final prevServer = _server;
-        _serverSubscription?.cancel();
 
         _server = await HttpServer.bind(address, port, shared: true);
         _forwardEvents(_server);

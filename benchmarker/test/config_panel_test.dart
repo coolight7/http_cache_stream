@@ -45,7 +45,8 @@ void main() {
       (tester) async {
     await pumpPanel(tester);
 
-    RangeSlider slider() => tester.widget<RangeSlider>(find.byType(RangeSlider));
+    RangeSlider slider() =>
+        tester.widget<RangeSlider>(find.byType(RangeSlider));
     ButtonSegment<RangeMode> segment(RangeMode mode) => tester
         .widget<SegmentedButton<RangeMode>>(
           find.byType(SegmentedButton<RangeMode>),

@@ -9,4 +9,10 @@ extension FutureExtensions<T> on Future<T> {
       action();
     }
   }
+
+  Future<void> ignoreResult() async {
+    try {
+      await this;
+    } catch (_) {}
+  }
 }

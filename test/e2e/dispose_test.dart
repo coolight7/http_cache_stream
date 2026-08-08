@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http_cache_stream/http_cache_stream.dart';
 
 import '../support/harness.dart';
 
@@ -10,7 +13,12 @@ void main() {
   // than completing in milliseconds.
   setUp(() async {
     h = CacheTestHarness();
-    await h.setUp();
+    await h.setUp(
+      configBuilder: (cacheDir) => GlobalCacheConfig(
+        cacheDirectory: cacheDir,
+        savePartialCache: false,
+      ),
+    );
   });
 
   tearDown(() => h.tearDown());
@@ -43,5 +51,39 @@ void main() {
 
     await stream.dispose(force: true);
     expect(stream.isDisposed, isTrue);
+  });
+
+  test('dispose deletes an incomplete cache with unknown source length',
+      () async {
+    final responseCloseGate = Completer<void>();
+    addTearDown(() {
+      if (!responseCloseGate.isCompleted) responseCloseGate.complete();
+    });
+    h.origin.chunkedTransferEncoding = true;
+    h.origin.responseCloseGate = responseCloseGate;
+
+    final stream = h.manager.createStream(h.origin.url('/chunked.mp3'));
+    stream.download().ignore();
+
+    // Wait until the chunked body is committed while the origin deliberately
+    // withholds the final chunk, keeping the download incomplete with no known
+    // source length.
+    for (var i = 0;
+        i < 100 &&
+            (!stream.files.partial.existsSync() ||
+                stream.files.partial.lengthSync() == 0);
+        i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+
+    expect(stream.headers?.sourceLength, isNull);
+    expect(stream.files.partial.existsSync(), isTrue);
+    expect(stream.files.partial.lengthSync(), greaterThan(0));
+
+    await stream.dispose(force: true);
+    responseCloseGate.complete();
+
+    expect(stream.files.partial.existsSync(), isFalse);
+    expect(stream.files.metadata.existsSync(), isFalse);
   });
 }

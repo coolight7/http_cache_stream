@@ -77,9 +77,11 @@ class InvalidCacheSizeException extends InvalidCacheException {
   static void validate(
     final Uri url,
     final int size,
-    final int expected,
-  ) {
+    final int expected, {
+    final bool partial = false,
+  }) {
     if (size == expected) return;
+    if (partial && size < expected) return;
 
     if (expected == 0 && size == -1) {
       //Accept non-existent cache as valid if expected length is 0

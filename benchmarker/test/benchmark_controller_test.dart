@@ -58,10 +58,7 @@ void main() {
         await request.response.close();
       }
     }());
-    // Addressed as `localhost` rather than the bound `127.0.0.1` so the source
-    // host differs from the cache server's host; otherwise http_cache_stream
-    // treats the source URL as an already-encoded cache URL.
-    sourceUrl = Uri.parse('http://localhost:${origin.port}/payload.bin');
+    sourceUrl = Uri.parse('http://127.0.0.1:${origin.port}/payload.bin');
 
     cacheDir = await Directory.systemTemp.createTemp('benchmarker_test');
     await HttpCacheManager.init(
@@ -213,10 +210,12 @@ void main() {
     // Every window is the same size and together they cover the payload once.
     expect(stats.totalBytes, payload.length);
     expect(stats.avgBytesPerRequest, plan.windowSize.toDouble());
-    expect(receivedRanges..sort(), [
-      for (var sequence = 0; sequence < 8; sequence++)
-        plan.windowFor(sequence).header,
-    ]..sort());
+    expect(
+        receivedRanges..sort(),
+        [
+          for (var sequence = 0; sequence < 8; sequence++)
+            plan.windowFor(sequence).header,
+        ]..sort());
     expect(
       controller.logs.map((entry) => entry.message),
       contains(contains('Sequential windows: 8 ×')),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -13,7 +14,9 @@ class TestOrigin {
   final HttpServer _server;
 
   /// The bytes this origin serves for a `200`/`206` response.
-  final Uint8List payload;
+  ///
+  /// Mutable so lifecycle tests can simulate changed content at the same URL.
+  Uint8List payload;
 
   // ---- Behavior knobs (mutate per-test) ----
 
@@ -46,6 +49,29 @@ class TestOrigin {
   /// then resets to null so a retry can succeed.
   int? dropAfterBytes;
 
+  /// When true, omits Content-Length and sends the response with chunked
+  /// transfer encoding, leaving the source length unknown until completion.
+  bool chunkedTransferEncoding = false;
+
+  /// When set, the response flushes its body and waits for this gate before
+  /// closing. This allows tests to dispose a download before a chunked response
+  /// sends its clean end-of-stream signal.
+  Completer<void>? responseCloseGate;
+
+  /// When set, waits before sending response headers. This lets tests control
+  /// whether a cache request can read persisted partial bytes before the latest
+  /// origin headers have been received.
+  Completer<void>? responseStartGate;
+
+  /// When set with [responseBodyGateAfterBytes], the response sends that many
+  /// body bytes, flushes them, and waits before sending the remainder. This
+  /// makes it possible to stop a download at a deterministic partial position.
+  Completer<void>? responseBodyGate;
+
+  /// Number of bytes to send before waiting on [responseBodyGate]. Ignored when
+  /// it is outside the requested body's bounds.
+  int? responseBodyGateAfterBytes;
+
   // ---- Observability ----
 
   int requestCount = 0;
@@ -53,11 +79,7 @@ class TestOrigin {
   String? lastRangeHeader;
   final List<String?> rangeHeaders = [];
 
-  // Reported as `localhost` (not the bound `127.0.0.1`) so the source host
-  // differs from the cache server's loopback host; otherwise the package treats
-  // the source URL as an already-encoded cache URL. `localhost` still resolves
-  // to loopback where the origin is listening.
-  Uri get baseUri => Uri(scheme: 'http', host: 'localhost', port: _server.port);
+  Uri get baseUri => Uri(scheme: 'http', host: '127.0.0.1', port: _server.port);
 
   /// A source URL on this origin for the given [path] (e.g. `/media/file.mp3`).
   Uri url(String path) => baseUri.replace(path: path);
@@ -82,6 +104,10 @@ class TestOrigin {
     lastRangeHeader = rangeHeader;
     rangeHeaders.add(rangeHeader);
 
+    if (responseStartGate case final gate?) {
+      await gate.future;
+    }
+
     final response = request.response;
 
     if (forcedStatusCode != null) {
@@ -93,7 +119,10 @@ class TestOrigin {
     _setCommonHeaders(response);
 
     // Resolve the requested byte range.
-    final total = payload.length;
+    // Keep one request internally consistent if a test swaps [payload] while a
+    // previous response is paused at [responseBodyGate].
+    final responsePayload = payload;
+    final total = responsePayload.length;
     int start = 0;
     int endEx = total; // exclusive
     final isRange = supportRanges && rangeHeader != null;
@@ -118,14 +147,18 @@ class TestOrigin {
     }
 
     final bodyLength = endEx - start;
-    response.headers.contentLength = lyingContentLength ?? bodyLength;
+    if (chunkedTransferEncoding) {
+      response.headers.chunkedTransferEncoding = true;
+    } else {
+      response.headers.contentLength = lyingContentLength ?? bodyLength;
+    }
 
     if (request.method == 'HEAD') {
       await response.close();
       return;
     }
 
-    final body = Uint8List.sublistView(payload, start, endEx);
+    final body = Uint8List.sublistView(responsePayload, start, endEx);
 
     final drop = dropAfterBytes;
     if (drop != null && drop < body.length) {
@@ -137,7 +170,23 @@ class TestOrigin {
       return;
     }
 
-    response.add(body);
+    final bodyGate = responseBodyGate;
+    final bodyGateAfterBytes = responseBodyGateAfterBytes;
+    if (bodyGate != null &&
+        bodyGateAfterBytes != null &&
+        bodyGateAfterBytes > 0 &&
+        bodyGateAfterBytes < body.length) {
+      response.add(Uint8List.sublistView(body, 0, bodyGateAfterBytes));
+      await response.flush();
+      await bodyGate.future;
+      response.add(Uint8List.sublistView(body, bodyGateAfterBytes));
+    } else {
+      response.add(body);
+    }
+    if (responseCloseGate case final gate?) {
+      await response.flush();
+      await gate.future;
+    }
     await response.close();
   }
 

@@ -28,7 +28,8 @@ Future<SourceInfo> probeSource(
   try {
     try {
       final response = await httpClient.head(url).timeout(timeout);
-      if (_isSuccess(response.statusCode) && (response.contentLength ?? 0) > 0) {
+      if (_isSuccess(response.statusCode) &&
+          (response.contentLength ?? 0) > 0) {
         return SourceInfo(
           contentLength: response.contentLength,
           acceptsRanges: _advertisesRanges(response.headers),

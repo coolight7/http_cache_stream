@@ -146,7 +146,3 @@ flutter test
 The suite covers request distribution and statistics, drives real worker
 isolates against a local origin server, and runs all three benchmark types
 end-to-end through a real `HttpCacheManager`.
-
-> When testing against a **loopback** origin, address it as `localhost` rather
-> than `127.0.0.1`: `http_cache_stream` rejects source URLs whose host matches
-> the cache server's own host.

@@ -13,6 +13,7 @@ class StreamResponseCancelledException extends StreamResponseException {
       : super('StreamResponse was cancelled');
 }
 
+@Deprecated('No longer used, will be removed in future versions')
 class StreamResponseExceededMaxBufferSizeException
     extends StreamResponseException {
   const StreamResponseExceededMaxBufferSizeException(int maxBufferSize)

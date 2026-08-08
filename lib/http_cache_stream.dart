@@ -25,6 +25,7 @@ export 'src/models/cache_files/cache_files.dart';
 export 'src/models/cache_state/cache_state.dart';
 export 'src/models/exceptions/http_exceptions.dart';
 export 'src/models/exceptions/invalid_cache_exceptions.dart';
+export 'src/models/exceptions/partial_cache_feed_exceptions.dart';
 export 'src/models/exceptions/state_errors.dart';
 export 'src/models/exceptions/stream_response_exceptions.dart';
 export 'src/models/http_range/http_range.dart';

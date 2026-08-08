@@ -1,3 +1,21 @@
+## 0.2.0
+
+This release is designed to preserve existing behavior while making caching and streaming faster and more robust.
+
+### Improvements
+
+* Improved streaming performance and efficiency when serving cached content.
+* Improved reliability when resuming partially downloaded files.
+* Improved handling of interrupted downloads, cache validation, and source changes.
+* Improved range request handling and cache integrity checks.
+* Improved cache lifecycle and cleanup behavior across platforms.
+
+### Fixes
+
+* Fixed edge cases that could cause incomplete or outdated cached data to be served.
+* Fixed several issues involving partial downloads, interrupted connections, and cache file transitions.
+* Fixed assorted range request and local cache server edge cases.
+
 ## 0.1.0
 
 This release significantly simplifies cache management. A new `getCacheUrl` API automates the full lifecycle of cache streams, eliminating the need to create or manage `HttpCacheStream` instances for most integrations.

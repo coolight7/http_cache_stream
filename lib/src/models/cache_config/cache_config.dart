@@ -36,7 +36,6 @@ abstract interface class CacheConfiguration {
 
   ///The maximum amount of data (in bytes) to buffer in memory.
   ///If an ongoing cache download is receiving data faster than it can be written to disk, and the buffer exceeds this size, the download will be paused until the buffer is flushed to disk.
-  ///If a response stream is receiving data faster than it can be consumed, and the buffer exceeds this size, then the stream will be cancelled with an exception.
   ///Default is 25MB.
   int get maxBufferSize;
   set maxBufferSize(int value);
