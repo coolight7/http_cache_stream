@@ -124,7 +124,8 @@ void main() {
     expect(streamError, isNull);
   });
 
-  test('a bounded stream errors when a clean feed closes before its end', () async {
+  test('a bounded stream errors when a clean feed closes before its end',
+      () async {
     final payload = Payload.generate(4 * 1024);
     final sink = BufferedIOSink(cacheFiles.partial, 0);
     sink.add(payload);
@@ -155,12 +156,14 @@ void main() {
     final resultFuture = stream.expand((bytes) => bytes).toList();
 
     sink.add(payload);
-    await sink.close(); //Aborted: the source never reached the end of its content
+    await sink
+        .close(); //Aborted: the source never reached the end of its content
 
     // Without a known end position, a clean close is the only end-of-stream
     // signal. An aborted feed must not be reported as one, or the listener
     // accepts the truncated content as complete.
-    await expectLater(resultFuture, throwsA(isA<PartialCacheAbortedException>()));
+    await expectLater(
+        resultFuture, throwsA(isA<PartialCacheAbortedException>()));
   });
 
   test('opens the completed file after partial-file promotion', () async {

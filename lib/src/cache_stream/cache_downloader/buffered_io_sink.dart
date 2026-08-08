@@ -13,7 +13,8 @@ class BufferedIOSink {
   static const int _maxWriteSize = 256 * 1024; // 256 KB
 
   final File file;
-  BufferedIOSink(this.file, int initialPosition) : _flushedBytes = initialPosition {
+  BufferedIOSink(this.file, int initialPosition)
+      : _flushedBytes = initialPosition {
     _feed = BufferedIOSinkFeed._(this);
   }
 
@@ -56,7 +57,8 @@ class BufferedIOSink {
           final bytes = _buffer.takeBytes();
           for (int start = 0; start < bytes.length; start += _maxWriteSize) {
             final int uncappedEnd = start + _maxWriteSize;
-            final int end = uncappedEnd < bytes.length ? uncappedEnd : bytes.length;
+            final int end =
+                uncappedEnd < bytes.length ? uncappedEnd : bytes.length;
             await raf.writeFrom(bytes, start, end);
             _flushedBytes += end - start;
             _feed._notifyPositionWaiters();
@@ -73,7 +75,8 @@ class BufferedIOSink {
   /// Returns a [PositionWaiter] that completes once [flushedBytes] reaches or exceeds [minFlushedBytes].
   /// Completes immediately if the position is already reached.
   /// Fails if the sink is closed, a flush error occurs before the position is reached, or the waiter is cancelled.
-  PositionWaiter waitForPosition(int minFlushedBytes) => _feed.waitForPosition(minFlushedBytes);
+  PositionWaiter waitForPosition(int minFlushedBytes) =>
+      _feed.waitForPosition(minFlushedBytes);
 
   /// Closes the sink, resolving any waiters that can no longer be satisfied.
   ///

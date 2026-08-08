@@ -25,6 +25,7 @@ class PartialCacheAbortedException implements Exception {
   const PartialCacheAbortedException(this.position);
 
   @override
-  String toString() => 'PartialCacheAbortedException: Download aborted at position $position, '
+  String toString() =>
+      'PartialCacheAbortedException: Download aborted at position $position, '
       'before the end of the content';
 }

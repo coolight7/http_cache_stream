@@ -34,7 +34,9 @@ class DownloadResponseListener {
       cancelOnError: true,
     );
     _timeoutTimer.start(() {
-      cancel(isPaused ? DownloadPausedException(sourceUrl, _timeoutTimer.duration) : ReadTimedOutException(sourceUrl, _timeoutTimer.duration));
+      cancel(isPaused
+          ? DownloadPausedException(sourceUrl, _timeoutTimer.duration)
+          : ReadTimedOutException(sourceUrl, _timeoutTimer.duration));
     });
   }
 

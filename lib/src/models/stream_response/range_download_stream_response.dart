@@ -9,7 +9,8 @@ import 'stream_response.dart';
 class RangeDownloadStreamResponse extends StreamResponse {
   final DownloadStream _downloadStream;
   final int _minChunkSize;
-  const RangeDownloadStreamResponse._(super.range, super.responseHeaders, this._downloadStream, this._minChunkSize);
+  const RangeDownloadStreamResponse._(super.range, super.responseHeaders,
+      this._downloadStream, this._minChunkSize);
 
   static Future<RangeDownloadStreamResponse> construct(
     final Uri url,

@@ -78,7 +78,8 @@ class _PartialCacheFileReader {
   /// stream was closed.
   bool get _isDone => _controller.isClosed || !_controller.hasListener;
 
-  bool get _atRequestedEnd => _requestedEnd != null && _readPosition >= _requestedEnd;
+  bool get _atRequestedEnd =>
+      _requestedEnd != null && _readPosition >= _requestedEnd;
 
   /// Performs the one-time setup. The hot read path is callback-driven rather
   /// than an async/await loop so each block can schedule the next read before

@@ -28,7 +28,8 @@ class CacheMetadata {
   static CacheMetadata? fromCacheFiles(final CacheFiles cacheFiles) {
     final metadataFile = cacheFiles.metadata;
     if (!metadataFile.existsSync()) return null;
-    final metadataJson = jsonDecodeBytes(metadataFile.readAsBytesSync()) as Map<String, dynamic>;
+    final metadataJson =
+        jsonDecodeBytes(metadataFile.readAsBytesSync()) as Map<String, dynamic>;
     return CacheMetadata(
       cacheFiles,
       Uri.parse(metadataJson['Url']),
@@ -42,13 +43,16 @@ class CacheMetadata {
 
     final completeCacheStat = await cacheFile.stat();
     if (completeCacheStat.type == FileSystemEntityType.file) {
-      InvalidCacheSizeException.validate(sourceUrl, completeCacheStat.size, sourceLength);
+      InvalidCacheSizeException.validate(
+          sourceUrl, completeCacheStat.size, sourceLength);
       return CacheState.complete(completeCacheStat.size);
     }
 
     final partialCachStat = await partialCacheFile.stat();
     if (partialCachStat.type == FileSystemEntityType.file) {
-      InvalidCacheSizeException.validate(sourceUrl, partialCachStat.size, sourceLength, partial: true);
+      InvalidCacheSizeException.validate(
+          sourceUrl, partialCachStat.size, sourceLength,
+          partial: true);
 
       if (partialCachStat.size == sourceLength) {
         try {
@@ -56,8 +60,10 @@ class CacheMetadata {
           return CacheState.complete(partialCachStat.size);
         } on FileSystemException {
           final completeCacheStat = await cacheFile.stat();
-          if (completeCacheStat.type == FileSystemEntityType.file && completeCacheStat.size == sourceLength) {
-            return CacheState.complete(completeCacheStat.size); //Renamed by another process, treat as complete.
+          if (completeCacheStat.type == FileSystemEntityType.file &&
+              completeCacheStat.size == sourceLength) {
+            return CacheState.complete(completeCacheStat
+                .size); //Renamed by another process, treat as complete.
           }
         }
       }

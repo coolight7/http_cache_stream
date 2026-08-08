@@ -114,4 +114,5 @@ abstract interface class CacheConfiguration {
   }
 }
 
-typedef CacheCompleteCallback = void Function(HttpCacheStream stream, File completedCacheFile);
+typedef CacheCompleteCallback = void Function(
+    HttpCacheStream stream, File completedCacheFile);

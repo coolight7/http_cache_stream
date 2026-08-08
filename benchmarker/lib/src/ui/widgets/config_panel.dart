@@ -263,8 +263,9 @@ class _RangeSelector extends StatelessWidget {
               ],
               selected: {form.rangeMode},
               showSelectedIcon: false,
-              onSelectionChanged:
-                  isBusy ? null : (selection) => form.rangeMode = selection.first,
+              onSelectionChanged: isBusy
+                  ? null
+                  : (selection) => form.rangeMode = selection.first,
             ),
           ),
         ),

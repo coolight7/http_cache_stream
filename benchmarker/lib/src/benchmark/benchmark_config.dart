@@ -194,8 +194,7 @@ class RangePlan {
       );
 
   @override
-  String toString() =>
-      'RangePlan(bytes $start-$end, window $windowSize, '
+  String toString() => 'RangePlan(bytes $start-$end, window $windowSize, '
       'sequential: $isSequential)';
 }
 
@@ -248,7 +247,10 @@ class BenchmarkConfig {
     required int? totalRequests,
   }) {
     final uri = Uri.tryParse(url.trim());
-    if (url.trim().isEmpty || uri == null || !uri.hasScheme || uri.host.isEmpty) {
+    if (url.trim().isEmpty ||
+        uri == null ||
+        !uri.hasScheme ||
+        uri.host.isEmpty) {
       return 'Enter a valid absolute source URL.';
     }
     if (uri.scheme != 'http' && uri.scheme != 'https') {

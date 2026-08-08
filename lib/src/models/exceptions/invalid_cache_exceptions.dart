@@ -12,11 +12,13 @@ class InvalidCacheException implements Exception {
 }
 
 class CacheResetException extends InvalidCacheException {
-  const CacheResetException(Uri uri) : super(uri, 'Cache reset by user request');
+  const CacheResetException(Uri uri)
+      : super(uri, 'Cache reset by user request');
 }
 
 class CacheSourceChangedException extends InvalidCacheException {
-  const CacheSourceChangedException(Uri uri) : super(uri, 'Cache source changed');
+  const CacheSourceChangedException(Uri uri)
+      : super(uri, 'Cache source changed');
 }
 
 class HttpRangeException extends InvalidCacheException implements RangeError {

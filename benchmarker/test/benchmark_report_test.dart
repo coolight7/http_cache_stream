@@ -108,14 +108,16 @@ void main() {
 
       expect(json['run_id'], 3);
       expect(json['source_url'], 'https://example.com/file.bin');
-      expect(json['target_url'], 'http://127.0.0.1:4612/https/example.com/f.bin');
+      expect(
+          json['target_url'], 'http://127.0.0.1:4612/https/example.com/f.bin');
       expect(json['cache_type'], 'preCached');
       expect(json['cache_type_label'], 'Pre-cached');
       expect(json['status'], 'Finished');
       expect(json['build_mode'], 'release');
       expect(json['started_at'], _startedAt.toIso8601String());
       expect(json['ended_at'], _endedAt.toIso8601String());
-      expect(json['wall_duration_us'], const Duration(seconds: 5).inMicroseconds);
+      expect(
+          json['wall_duration_us'], const Duration(seconds: 5).inMicroseconds);
       expect(json['concurrency'], 2);
       expect(json['http_client'], kHttpClientOptions.first.label);
 
@@ -155,8 +157,8 @@ void main() {
     });
 
     test('renders without a config', () {
-      final json = jsonDecode(buildJsonReport(_result()))
-          as Map<String, Object?>;
+      final json =
+          jsonDecode(buildJsonReport(_result())) as Map<String, Object?>;
 
       expect(json['source_url'], isNull);
       expect((json['requests']! as Map<String, Object?>)['completed'], 4);

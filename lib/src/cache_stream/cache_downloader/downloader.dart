@@ -25,7 +25,8 @@ class Downloader {
   Future<void> download({
     required final IntRange Function() downloadRange,
     required final void Function(Object e) onError,
-    required final void Function(CachedResponseHeaders responseHeaders) onHeaders,
+    required final void Function(CachedResponseHeaders responseHeaders)
+        onHeaders,
     required final void Function(List<int> data) onData,
   }) async {
     try {
@@ -49,11 +50,14 @@ class Downloader {
           );
           if (_pauseCounter.isPaused) {
             final readTimeout = streamConfig.readTimeout;
-            await _pauseCounter.onResume.timeout(readTimeout, onTimeout: () => throw DownloadPausedException(sourceUrl, readTimeout));
+            await _pauseCounter.onResume.timeout(readTimeout,
+                onTimeout: () =>
+                    throw DownloadPausedException(sourceUrl, readTimeout));
           }
           checkActive();
           onHeaders(downloadStream.responseHeaders);
-          final responseListener = DownloadResponseListener(sourceUrl, downloadStream, onData, streamConfig);
+          final responseListener = DownloadResponseListener(
+              sourceUrl, downloadStream, onData, streamConfig);
           _responseListener = responseListener;
           try {
             _done = await responseListener.done;
@@ -70,7 +74,9 @@ class Downloader {
             await _pauseCounter.onResume;
           } else {
             onError(e);
-            await (_pauseCounter.isPaused ? _pauseCounter.onResume : Future.delayed(const Duration(seconds: 5)));
+            await (_pauseCounter.isPaused
+                ? _pauseCounter.onResume
+                : Future.delayed(const Duration(seconds: 5)));
           }
         }
       }
@@ -84,7 +90,8 @@ class Downloader {
     final responseListener = _responseListener;
     if (responseListener != null) {
       _responseListener = null;
-      responseListener.cancel(exception ?? DownloadStoppedException(sourceUrl), flushBuffer: exception is! InvalidCacheException);
+      responseListener.cancel(exception ?? DownloadStoppedException(sourceUrl),
+          flushBuffer: exception is! InvalidCacheException);
     }
     _pauseCounter.resume(force: true); //Break any pauses
   }

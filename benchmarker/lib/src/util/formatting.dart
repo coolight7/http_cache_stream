@@ -57,5 +57,4 @@ String formatTimestamp(DateTime time) {
       '${formatClockTime(local)}';
 }
 
-String _pad(int value, [int width = 2]) =>
-    value.toString().padLeft(width, '0');
+String _pad(int value, [int width = 2]) => value.toString().padLeft(width, '0');

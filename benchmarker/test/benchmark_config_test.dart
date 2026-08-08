@@ -31,8 +31,8 @@ void main() {
     test('always sums to the total request count', () {
       for (var concurrency = 1; concurrency <= 16; concurrency++) {
         for (var total = concurrency; total <= 200; total += 7) {
-          final distribution =
-              _config(concurrency: concurrency, total: total).requestDistribution();
+          final distribution = _config(concurrency: concurrency, total: total)
+              .requestDistribution();
           expect(distribution, hasLength(concurrency));
           expect(distribution.reduce((a, b) => a + b), total);
           expect(distribution.every((count) => count > 0), isTrue);
@@ -100,7 +100,8 @@ void main() {
 
     test('windows start where the previous one ended', () {
       const requestCount = 7;
-      final plan = RangePlan.sequential(const ByteRange(4096, 20479), requestCount);
+      final plan =
+          RangePlan.sequential(const ByteRange(4096, 20479), requestCount);
 
       // Every window but the last starts directly after its predecessor; the
       // last slides back to end on the final byte, so it may overlap.
@@ -138,7 +139,8 @@ void main() {
 
     test('the windows cover the whole selected range', () {
       for (final requestCount in [1, 2, 3, 7, 16, 100]) {
-        final plan = RangePlan.sequential(const ByteRange(500, 1499), requestCount);
+        final plan =
+            RangePlan.sequential(const ByteRange(500, 1499), requestCount);
         expect(plan.windowFor(0).start, 500);
         expect(plan.windowFor(requestCount - 1).end, 1499);
       }

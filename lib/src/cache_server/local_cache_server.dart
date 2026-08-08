@@ -16,7 +16,8 @@ class LocalCacheServer {
         );
 
   static Future<LocalCacheServer> init({int? port}) async {
-    final httpServer = await KeepAliveServer.bind(InternetAddress.loopbackIPv4, port ?? 0);
+    final httpServer =
+        await KeepAliveServer.bind(InternetAddress.loopbackIPv4, port ?? 0);
     return LocalCacheServer._(httpServer);
   }
 
@@ -37,8 +38,10 @@ class LocalCacheServer {
         } catch (e) {
           requestHandler.closeWithError(e);
         } finally {
-          assert(requestHandler.isClosed, 'RequestHandler should be closed after processing the request');
-          cacheStream?.release(); //Release the stream after handling the request
+          assert(requestHandler.isClosed,
+              'RequestHandler should be closed after processing the request');
+          cacheStream
+              ?.release(); //Release the stream after handling the request
         }
       },
       onError: (_) {},
@@ -84,7 +87,8 @@ class LocalCacheServer {
       // URL produced by an earlier instance before encoding it for this one.
       // Requiring the cache server's scheme and a different port lets regular
       // source URLs hosted by another local server pass through unchanged.
-      if (sourceUrl.scheme == serverUri.scheme && sourceUrl.port != serverUri.port) {
+      if (sourceUrl.scheme == serverUri.scheme &&
+          sourceUrl.port != serverUri.port) {
         sourceUrl = decodeSourceUrl(sourceUrl) ?? sourceUrl;
       }
     }
@@ -92,7 +96,8 @@ class LocalCacheServer {
     final defaultPort = switch (sourceUrl.scheme) {
       'https' => 443,
       'http' => 80,
-      _ => throw ArgumentError('Unsupported URI scheme: ${sourceUrl.scheme}. Only http and https are supported.'),
+      _ => throw ArgumentError(
+          'Unsupported URI scheme: ${sourceUrl.scheme}. Only http and https are supported.'),
     };
 
     String hostSegment = sourceUrl.host;
@@ -107,7 +112,8 @@ class LocalCacheServer {
       port: serverUri.port,
       pathSegments: [sourceUrl.scheme, hostSegment, ...sourceUrl.pathSegments],
     );
-    assert(validateCacheUrl(encodedUrl), 'Encoded URL is not valid: $encodedUrl');
+    assert(
+        validateCacheUrl(encodedUrl), 'Encoded URL is not valid: $encodedUrl');
     return encodedUrl;
   }
 

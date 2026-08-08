@@ -351,8 +351,7 @@ class _TileGrid extends StatelessWidget {
           spacing: spacing,
           runSpacing: spacing,
           children: [
-            for (final tile in tiles)
-              SizedBox(width: tileWidth, child: tile),
+            for (final tile in tiles) SizedBox(width: tileWidth, child: tile),
           ],
         );
       },
@@ -426,10 +425,9 @@ class _TimingTable extends StatelessWidget {
         child: Text(
           text,
           textAlign: leading ? TextAlign.left : TextAlign.right,
-          style: (header
-                  ? theme.textTheme.labelSmall
-                  : theme.textTheme.bodySmall)
-              ?.copyWith(
+          style:
+              (header ? theme.textTheme.labelSmall : theme.textTheme.bodySmall)
+                  ?.copyWith(
             color: header ? theme.colorScheme.onSurfaceVariant : null,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),

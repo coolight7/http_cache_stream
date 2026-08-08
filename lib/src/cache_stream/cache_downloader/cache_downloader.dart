@@ -71,22 +71,29 @@ class CacheDownloader {
           },
           onHeaders: (cacheHttpHeaders) {
             final prevHeaders = _validatedHeaders ?? _resumeHeaders;
-            if (prevHeaders != null && downloadPosition > 0 && !CachedResponseHeaders.validateCacheResponse(prevHeaders, cacheHttpHeaders)) {
+            if (prevHeaders != null &&
+                downloadPosition > 0 &&
+                !CachedResponseHeaders.validateCacheResponse(
+                    prevHeaders, cacheHttpHeaders)) {
               throw CacheSourceChangedException(sourceUrl);
             }
 
             _validatedHeaders = cacheHttpHeaders;
             onHeaders(cacheHttpHeaders);
-            onPosition(downloadPosition); //Emit current position to update progress and process queued requests
+            onPosition(
+                downloadPosition); //Emit current position to update progress and process queued requests
           },
           onData: (data) {
-            assert(_validatedHeaders != null, 'Bad state: No validated headers onData');
+            assert(_validatedHeaders != null,
+                'Bad state: No validated headers onData');
             _position += data.length;
             _sink.add(data);
-            onPosition(downloadPosition); //Emit current position to update progress and synchronously process queued requests
+            onPosition(
+                downloadPosition); //Emit current position to update progress and synchronously process queued requests
 
             if (_sink.bufferSize > maxBufferSize) {
-              _downloader.pause(); //Pause upstream if we are receiving more data than we can write
+              _downloader
+                  .pause(); //Pause upstream if we are receiving more data than we can write
               _sink.flush().then(
                 (_) {
                   _downloader.resume();
@@ -113,13 +120,15 @@ class CacheDownloader {
       try {
         await _sink.close(
           flushBuffer: true,
-          isDone: _downloader.isDone, //If the source did not end, the feed is marked as aborted so readers do not treat it as an end of stream
+          isDone: _downloader
+              .isDone, //If the source did not end, the feed is marked as aborted so readers do not treat it as an end of stream
         ); //Flushes all buffered data and closes the sink
       } catch (e) {
         onError(e);
       }
 
-      final sourceLength = _validatedHeaders?.sourceLength ?? (_downloader.isDone ? downloadPosition : null);
+      final sourceLength = _validatedHeaders?.sourceLength ??
+          (_downloader.isDone ? downloadPosition : null);
       if (sourceLength != null && downloadPosition == sourceLength) {
         await onComplete(sourceLength);
       }
@@ -178,7 +187,8 @@ class CacheDownloader {
     return true;
   }
 
-  int? get sourceLength => _validatedHeaders?.sourceLength ?? _resumeHeaders?.sourceLength;
+  int? get sourceLength =>
+      _validatedHeaders?.sourceLength ?? _resumeHeaders?.sourceLength;
   int get downloadPosition => _position;
   int get filePosition => _sink.flushedBytes;
   Uri get sourceUrl => _downloader.sourceUrl;

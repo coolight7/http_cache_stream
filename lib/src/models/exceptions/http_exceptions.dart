@@ -6,17 +6,20 @@ import 'package:http/http.dart' as http;
 import '../http_range/http_range_response.dart';
 
 class DownloadException extends HttpException {
-  DownloadException(Uri uri, String message) : super('Download Exception: $message', uri: uri);
+  DownloadException(Uri uri, String message)
+      : super('Download Exception: $message', uri: uri);
 }
 
 class DownloadStoppedException extends DownloadException {
   DownloadStoppedException(Uri uri) : super(uri, 'Download stopped');
 }
 
-class RequestTimedOutException extends DownloadException implements TimeoutException, http.ClientException {
+class RequestTimedOutException extends DownloadException
+    implements TimeoutException, http.ClientException {
   @override
   final Duration duration;
-  RequestTimedOutException(Uri uri, this.duration) : super(uri, 'Timed out after $duration');
+  RequestTimedOutException(Uri uri, this.duration)
+      : super(uri, 'Timed out after $duration');
 
   @override
   String toString() {
@@ -24,10 +27,12 @@ class RequestTimedOutException extends DownloadException implements TimeoutExcep
   }
 }
 
-class ReadTimedOutException extends DownloadException implements TimeoutException, http.ClientException {
+class ReadTimedOutException extends DownloadException
+    implements TimeoutException, http.ClientException {
   @override
   final Duration duration;
-  ReadTimedOutException(Uri uri, this.duration) : super(uri, 'Timed out after $duration');
+  ReadTimedOutException(Uri uri, this.duration)
+      : super(uri, 'Timed out after $duration');
 
   @override
   String toString() {
@@ -37,10 +42,12 @@ class ReadTimedOutException extends DownloadException implements TimeoutExceptio
 
 /// Thrown when a paused download does not resume within the configured timeout.
 /// This exception is intentional - it prevents a paused download from hanging indefinitely.
-class DownloadPausedException extends DownloadException implements TimeoutException, http.ClientException {
+class DownloadPausedException extends DownloadException
+    implements TimeoutException, http.ClientException {
   @override
   final Duration duration;
-  DownloadPausedException(Uri uri, this.duration) : super(uri, 'Timed out after $duration');
+  DownloadPausedException(Uri uri, this.duration)
+      : super(uri, 'Timed out after $duration');
 
   @override
   String toString() {

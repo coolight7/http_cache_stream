@@ -103,7 +103,8 @@ void main() {
 
     // Attach the matcher before cancelling: an unobserved error future would
     // otherwise crash the test.
-    final expectation = expectLater(waiter.future, throwsA(isA<PositionWaiterCancelledException>()));
+    final expectation = expectLater(
+        waiter.future, throwsA(isA<PositionWaiterCancelledException>()));
     waiter.cancel();
     expect(waiter.isCompleted, isTrue);
     await expectation;
@@ -145,12 +146,15 @@ void main() {
     await sink.close(isDone: true);
   });
 
-  test('waitForPosition fails as aborted if the sink closes before reaching it', () async {
+  test('waitForPosition fails as aborted if the sink closes before reaching it',
+      () async {
     final sink = BufferedIOSink(tmp('closed.bin'), 0);
     sink.add(Payload.generate(1024));
     // Attach the matcher before closing: close() fails the waiter synchronously,
     // and an unobserved error future would otherwise crash the test.
-    final expectation = expectLater(sink.waitForPosition(10 * 1024 * 1024).future, throwsA(isA<PartialCacheAbortedException>()));
+    final expectation = expectLater(
+        sink.waitForPosition(10 * 1024 * 1024).future,
+        throwsA(isA<PartialCacheAbortedException>()));
     await sink.close();
     await expectation;
 
@@ -159,10 +163,14 @@ void main() {
     expect(sink.feed.failure, isA<PartialCacheAbortedException>());
   });
 
-  test('waitForPosition fails as closed when the sink is done before reaching it', () async {
+  test(
+      'waitForPosition fails as closed when the sink is done before reaching it',
+      () async {
     final sink = BufferedIOSink(tmp('closed-done.bin'), 0);
     sink.add(Payload.generate(1024));
-    final expectation = expectLater(sink.waitForPosition(10 * 1024 * 1024).future, throwsA(isA<StateError>()));
+    final expectation = expectLater(
+        sink.waitForPosition(10 * 1024 * 1024).future,
+        throwsA(isA<StateError>()));
     await sink.close(isDone: true);
     await expectation;
 

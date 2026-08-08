@@ -112,7 +112,8 @@ void main() {
     expect(cacheDir.listSync(), isEmpty);
   });
 
-  test('pre-cached run serves every request from the completed cache', () async {
+  test('pre-cached run serves every request from the completed cache',
+      () async {
     await controller.start(configFor(BenchmarkType.preCached));
 
     expect(controller.phase, BenchmarkPhase.finished);
@@ -170,7 +171,8 @@ void main() {
     );
   });
 
-  test('pre-cached run serves the selected byte range from the cache', () async {
+  test('pre-cached run serves the selected byte range from the cache',
+      () async {
     const range = ByteRange(4096, 8191);
     await controller.start(
       configFor(BenchmarkType.preCached, rangePlan: RangePlan.fixed(range)),
@@ -211,7 +213,8 @@ void main() {
     expect(
         receivedRanges..sort(),
         [
-          for (var sequence = 0; sequence < 8; sequence++) plan.windowFor(sequence).header,
+          for (var sequence = 0; sequence < 8; sequence++)
+            plan.windowFor(sequence).header,
         ]..sort());
     expect(
       controller.logs.map((entry) => entry.message),
@@ -296,7 +299,8 @@ void main() {
     expect(controller.selectedResult!.isComplete, isTrue);
   });
 
-  test('the worker pool is reused between runs with the same settings', () async {
+  test('the worker pool is reused between runs with the same settings',
+      () async {
     await controller.start(configFor(BenchmarkType.direct, total: 2));
     await controller.start(configFor(BenchmarkType.direct, total: 2));
 
