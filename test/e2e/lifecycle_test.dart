@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http_cache_stream/http_cache_stream.dart';
@@ -129,6 +130,63 @@ void main() {
 
     final file = await resumed.download();
     expect(Payload.hash(await file.readAsBytes()), h.payloadHash);
+    expect(h.origin.rangeHeaders, contains('bytes=$half-'));
+
+    await resumed.dispose();
+  });
+
+  test('a full request does not serve stale partial bytes after recreation',
+      () async {
+    final source = h.origin.url('/request-resume.mp3');
+    final half = h.origin.payload.length ~/ 2;
+    final bodyGate = Completer<void>();
+    h.origin
+      ..responseBodyGate = bodyGate
+      ..responseBodyGateAfterBytes = half;
+
+    final interrupted = h.manager.createStream(source);
+    await _abortAtHalf(interrupted);
+
+    h.origin
+      ..responseBodyGate = null
+      ..responseBodyGateAfterBytes = null
+      ..payload = Payload.generate(h.origin.payload.length, seed: 0xBEEF)
+      ..etag = '"v2"';
+    final changedPayloadHash = h.payloadHash;
+    final responseStartGate = Completer<void>();
+    h.origin.responseStartGate = responseStartGate;
+    bodyGate.complete();
+    final resumed = h.manager.createStream(source);
+
+    // Start the resumed download using a request, then wait until its HTTP
+    // request is blocked before headers arrive. The next request exercises the
+    // window where CacheDownloader has stale persisted headers and partial
+    // bytes available.
+    resumed.request(start: 0, end: h.origin.payload.length).ignore();
+    for (var i = 0; i < 50 && h.origin.requestCount < 2; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(h.origin.requestCount, greaterThanOrEqualTo(2));
+
+    // A correct implementation queues the request below until after
+    // validation, so it simply waits here before receiving the new file.
+    Future<void>.delayed(const Duration(milliseconds: 100), () {
+      if (!responseStartGate.isCompleted) responseStartGate.complete();
+    });
+
+    // Do not validate or explicitly resume the download. This request must
+    // reject the stale partial cache and serve only bytes from the changed
+    // source.
+    final response = await resumed.request(
+      start: 0,
+      end: h.origin.payload.length,
+    );
+    final bytes = BytesBuilder(copy: false);
+    await response.stream
+        .timeout(const Duration(seconds: 5))
+        .forEach(bytes.add);
+
+    expect(Payload.hash(bytes.takeBytes()), changedPayloadHash);
     expect(h.origin.rangeHeaders, contains('bytes=$half-'));
 
     await resumed.dispose();

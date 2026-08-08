@@ -20,8 +20,13 @@ class CacheDownloader {
   final BufferedIOSink _sink;
   final _completer = Completer<void>();
   int _position;
-  CachedResponseHeaders? _cachedHeaders;
   bool _paused = false;
+
+  ///Used to validate cache response when resuming a previous partial download
+  final CachedResponseHeaders? _resumeHeaders;
+
+  ///Headers received and validated
+  CachedResponseHeaders? _validatedHeaders;
   CacheDownloader._(
     final CacheMetadata cacheMetadata,
     final int startPosition,
@@ -29,7 +34,7 @@ class CacheDownloader {
   )   : _cacheFiles = cacheMetadata.cacheFiles,
         _position = startPosition,
         _sink = BufferedIOSink(cacheMetadata.partialCacheFile, startPosition),
-        _cachedHeaders = startPosition > 0 ? cacheMetadata.headers : null;
+        _resumeHeaders = startPosition > 0 ? cacheMetadata.headers : null;
 
   factory CacheDownloader.construct(
     final CacheMetadata cacheMetadata,
@@ -65,16 +70,17 @@ class CacheDownloader {
             onError(error);
           },
           onHeaders: (cacheHttpHeaders) {
-            final prevHeaders = _cachedHeaders;
+            final prevHeaders = _validatedHeaders ?? _resumeHeaders;
             if (prevHeaders != null && downloadPosition > 0 && !CachedResponseHeaders.validateCacheResponse(prevHeaders, cacheHttpHeaders)) {
               throw CacheSourceChangedException(sourceUrl);
             }
 
-            _cachedHeaders = cacheHttpHeaders;
+            _validatedHeaders = cacheHttpHeaders;
             onHeaders(cacheHttpHeaders);
             onPosition(downloadPosition); //Emit current position to update progress and process queued requests
           },
           onData: (data) {
+            assert(_validatedHeaders != null, 'Bad state: No validated headers onData');
             _position += data.length;
             _sink.add(data);
             onPosition(downloadPosition); //Emit current position to update progress and synchronously process queued requests
@@ -97,6 +103,7 @@ class CacheDownloader {
           },
         );
       } on InvalidCacheException {
+        _validatedHeaders = null;
         rethrow;
       } catch (e) {
         onError(e);
@@ -112,7 +119,7 @@ class CacheDownloader {
         onError(e);
       }
 
-      final sourceLength = _cachedHeaders?.sourceLength ?? (_downloader.isDone ? downloadPosition : null);
+      final sourceLength = _validatedHeaders?.sourceLength ?? (_downloader.isDone ? downloadPosition : null);
       if (sourceLength != null && downloadPosition == sourceLength) {
         await onComplete(sourceLength);
       }
@@ -149,7 +156,7 @@ class CacheDownloader {
   bool processRequest(final StreamRequest request) {
     assert(!_paused);
     if (request.start > downloadPosition) return false;
-    final headers = _cachedHeaders;
+    final headers = _validatedHeaders;
     if (headers == null) return false;
 
     if (_downloader.isClosed && !_downloader.isDone) {
@@ -171,7 +178,7 @@ class CacheDownloader {
     return true;
   }
 
-  int? get sourceLength => _cachedHeaders?.sourceLength;
+  int? get sourceLength => _validatedHeaders?.sourceLength;
   int get downloadPosition => _position;
   int get filePosition => _sink.flushedBytes;
   Uri get sourceUrl => _downloader.sourceUrl;

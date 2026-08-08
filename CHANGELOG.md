@@ -1,3 +1,5 @@
+## 0.2.0
+
 ## 0.1.0
 
 This release significantly simplifies cache management. A new `getCacheUrl` API automates the full lifecycle of cache streams, eliminating the need to create or manage `HttpCacheStream` instances for most integrations.

@@ -58,6 +58,11 @@ class TestOrigin {
   /// sends its clean end-of-stream signal.
   Completer<void>? responseCloseGate;
 
+  /// When set, waits before sending response headers. This lets tests control
+  /// whether a cache request can read persisted partial bytes before the latest
+  /// origin headers have been received.
+  Completer<void>? responseStartGate;
+
   /// When set with [responseBodyGateAfterBytes], the response sends that many
   /// body bytes, flushes them, and waits before sending the remainder. This
   /// makes it possible to stop a download at a deterministic partial position.
@@ -98,6 +103,10 @@ class TestOrigin {
     final rangeHeader = request.headers.value(HttpHeaders.rangeHeader);
     lastRangeHeader = rangeHeader;
     rangeHeaders.add(rangeHeader);
+
+    if (responseStartGate case final gate?) {
+      await gate.future;
+    }
 
     final response = request.response;
 
@@ -163,7 +172,10 @@ class TestOrigin {
 
     final bodyGate = responseBodyGate;
     final bodyGateAfterBytes = responseBodyGateAfterBytes;
-    if (bodyGate != null && bodyGateAfterBytes != null && bodyGateAfterBytes > 0 && bodyGateAfterBytes < body.length) {
+    if (bodyGate != null &&
+        bodyGateAfterBytes != null &&
+        bodyGateAfterBytes > 0 &&
+        bodyGateAfterBytes < body.length) {
       response.add(Uint8List.sublistView(body, 0, bodyGateAfterBytes));
       await response.flush();
       await bodyGate.future;
@@ -190,7 +202,8 @@ class TestOrigin {
       response.headers.set(HttpHeaders.etagHeader, etag!);
     }
     if (lastModified != null) {
-      response.headers.set(HttpHeaders.lastModifiedHeader, HttpDate.format(lastModified!));
+      response.headers
+          .set(HttpHeaders.lastModifiedHeader, HttpDate.format(lastModified!));
     }
     if (cacheControl != null) {
       response.headers.set(HttpHeaders.cacheControlHeader, cacheControl!);
