@@ -178,7 +178,7 @@ class CacheDownloader {
     return true;
   }
 
-  int? get sourceLength => _validatedHeaders?.sourceLength;
+  int? get sourceLength => _validatedHeaders?.sourceLength ?? _resumeHeaders?.sourceLength;
   int get downloadPosition => _position;
   int get filePosition => _sink.flushedBytes;
   Uri get sourceUrl => _downloader.sourceUrl;
