@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import '../../cache_stream/cache_downloader/buffered_io_sink.dart';
 import '../../cache_stream/response_streams/partial_cache_file_stream.dart';
+import '../../cache_stream/response_streams/partial_cache_feed.dart';
 import '../cache_files/cache_files.dart';
 import '../metadata/cached_response_headers.dart';
 import '../stream_requests/int_range.dart';

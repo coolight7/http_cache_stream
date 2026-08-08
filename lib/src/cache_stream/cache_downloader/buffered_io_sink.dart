@@ -3,10 +3,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../models/exceptions/partial_cache_feed_exceptions.dart';
+import '../response_streams/partial_cache_feed.dart';
 
 part 'buffered_io_sink_feed.dart';
-part 'partial_cache_feed.dart';
-part 'position_waiter.dart';
 
 /// An IO sink that supports adding data while flushing to disk asynchronously.
 class BufferedIOSink {

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http_cache_stream/src/cache_stream/cache_downloader/buffered_io_sink.dart';
+import 'package:http_cache_stream/src/cache_stream/response_streams/partial_cache_feed.dart';
 import 'package:http_cache_stream/src/models/exceptions/partial_cache_feed_exceptions.dart';
 
 import '../support/payload.dart';

@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_cache_stream/http_cache_stream.dart';
 import 'package:http_cache_stream/src/cache_stream/cache_downloader/buffered_io_sink.dart';
 import 'package:http_cache_stream/src/cache_stream/response_streams/partial_cache_file_stream.dart';
+import 'package:http_cache_stream/src/cache_stream/response_streams/partial_cache_feed.dart';
 import 'package:http_cache_stream/src/models/stream_response/partial_file_stream_response.dart';
 import 'package:http_cache_stream/src/models/stream_response/stream_response_range.dart';
 
@@ -177,6 +178,37 @@ void main() {
     final result = await stream.expand((bytes) => bytes).toList();
 
     expect(Payload.hash(result), Payload.hash(payload));
+  });
+
+  test('streams from a completed feed with a fixed final position', () async {
+    final payload = Payload.generate(64 * 1024);
+    await cacheFiles.complete.writeAsBytes(payload);
+
+    const finalPosition = 48 * 1024;
+    const PartialCacheFeed feed = PartialCacheFeed.completed(finalPosition);
+    final stream = PartialCacheFileStream(
+      StreamRange.validate(4 * 1024, null, null),
+      cacheFiles,
+      feed,
+    );
+    final result = await stream.expand((bytes) => bytes).toList();
+
+    expect(Payload.hash(result),
+        Payload.hash(payload.sublist(4 * 1024, finalPosition)));
+    expect(feed.position, finalPosition);
+    expect(feed.isClosed, isTrue);
+    expect(feed.failure, isNull);
+  });
+
+  test('completed feed rejects positions beyond its final position', () async {
+    const feed = CompletedPartialCacheFeed(1024);
+
+    expect(feed.waitForPosition(1024).isCompleted, isTrue);
+    await expectLater(feed.waitForPosition(1024).future, completes);
+    await expectLater(
+      feed.waitForPosition(1025).future,
+      throwsA(isA<PartialCacheFeedClosedException>()),
+    );
   });
 
   test('fromPartialFile creates lazy streams on demand', () async {
