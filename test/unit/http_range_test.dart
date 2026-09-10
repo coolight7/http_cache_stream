@@ -92,5 +92,15 @@ void main() {
         isFalse,
       );
     });
+
+    test('equal when the response clamps the requested end to the source', () {
+      expect(
+        HttpRange.isEqual(
+          HttpRangeRequest(100, 999),
+          HttpRangeResponse(100, 499, sourceLength: 500),
+        ),
+        isTrue,
+      );
+    });
   });
 }

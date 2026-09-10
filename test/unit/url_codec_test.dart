@@ -54,6 +54,42 @@ void main() {
       expect(server.encodeSourceUrl(encoded), encoded);
     });
 
+    test('same-host source URL on another port is encoded normally', () {
+      final source = Uri(
+        scheme: 'http',
+        host: server.serverUri.host,
+        port: server.serverUri.port + 1,
+        path: '/file.mp3',
+      );
+
+      expectRoundTrip(source);
+    });
+
+    test('same-host https source URL is encoded normally', () {
+      final source = Uri(
+        scheme: 'https',
+        host: server.serverUri.host,
+        port: server.serverUri.port,
+        path: '/file.mp3',
+      );
+
+      expectRoundTrip(source);
+    });
+
+    test('an encoded URL with a stale cache-server port is re-encoded', () {
+      final source = Uri.parse('https://example.com/file.mp3');
+      final staleEncoded = server
+          .encodeSourceUrl(source)
+          .replace(port: server.serverUri.port + 1);
+
+      final reEncoded = server.encodeSourceUrl(staleEncoded);
+
+      expect(reEncoded.scheme, server.serverUri.scheme);
+      expect(reEncoded.host, server.serverUri.host);
+      expect(reEncoded.port, server.serverUri.port);
+      expect(server.decodeSourceUrl(reEncoded), source);
+    });
+
     test('a foreign URL does not validate as a cache URL', () {
       expect(
         server

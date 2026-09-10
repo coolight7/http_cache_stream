@@ -10,7 +10,7 @@ class IntRange implements Comparable<IntRange> {
   static IntRange full() => const IntRange(0);
 
   ///Constructs an IntRange with validation.
-  static IntRange validate(int? start, int? end, int? max) {
+  static IntRange validate(int? start, int? end, int? len) {
     start = start == null ? 0 : RangeError.checkNotNegative(start, 'start');
     if (start == 0 && end == null) {
       return IntRange.full();
@@ -18,13 +18,12 @@ class IntRange implements Comparable<IntRange> {
     if (end != null && start > end) {
       throw RangeError.range(end, start, null, 'end');
     }
-    if (max != null) {
-      if (start > max) {
-        throw RangeError.range(start, 0, max, 'start');
+    if (len != null) {
+      if (start > len) {
+        throw RangeError.range(start, 0, len, 'start');
       }
-      if (end != null && end >= max) {
-        end = max - 1;
-        // throw RangeError.range(end, start, max, 'end');
+      if (end != null && end >= len) {
+        end = len - 1;
       }
     }
     return IntRange(start, end);

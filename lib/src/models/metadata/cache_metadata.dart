@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:http_cache_stream/src/etc/extensions/file_extensions.dart';
 import 'package:http_cache_stream/src/models/cache_files/cache_files.dart';
 import 'package:http_cache_stream/src/models/metadata/cached_response_headers.dart';
 
@@ -42,26 +41,37 @@ class CacheMetadata {
     final sourceLength = this.sourceLength;
     if (sourceLength == null) return const CacheState.zero();
 
-    final completeCacheSize = await cacheFile.lengthOrNull();
-    if (completeCacheSize != null) {
+    final completeCacheStat = await cacheFile.stat();
+    if (completeCacheStat.type == FileSystemEntityType.file) {
       InvalidCacheSizeException.validate(
-          sourceUrl, completeCacheSize, sourceLength);
-      return CacheState.complete(completeCacheSize);
+          sourceUrl, completeCacheStat.size, sourceLength);
+      return CacheState.complete(completeCacheStat.size);
     }
 
-    final partialCacheSize = await partialCacheFile.lengthOrNull();
-    if (partialCacheSize == null || partialCacheSize <= 0) {
-      return const CacheState.zero();
-    } else if (partialCacheSize == sourceLength) {
-      await partialCacheFile.rename(
-          cacheFile.path); //Rename the partial cache to the complete cache
-      return CacheState.complete(partialCacheSize);
-    } else if (partialCacheSize > sourceLength) {
-      throw InvalidCacheSizeException(
-          sourceUrl, partialCacheSize, sourceLength);
-    } else {
-      return CacheState.incomplete(partialCacheSize, sourceLength);
+    final partialCachStat = await partialCacheFile.stat();
+    if (partialCachStat.type == FileSystemEntityType.file) {
+      InvalidCacheSizeException.validate(
+          sourceUrl, partialCachStat.size, sourceLength,
+          partial: true);
+
+      if (partialCachStat.size == sourceLength) {
+        try {
+          await partialCacheFile.rename(cacheFile.path);
+          return CacheState.complete(partialCachStat.size);
+        } on FileSystemException {
+          final completeCacheStat = await cacheFile.stat();
+          if (completeCacheStat.type == FileSystemEntityType.file &&
+              completeCacheStat.size == sourceLength) {
+            return CacheState.complete(completeCacheStat
+                .size); //Renamed by another process, treat as complete.
+          }
+        }
+      }
+
+      return CacheState.incomplete(partialCachStat.size, sourceLength);
     }
+
+    return CacheState.incomplete(0, sourceLength);
   }
 
   ///Returns true if the cache is complete. Returns false if the cache is incomplete or does not exist.

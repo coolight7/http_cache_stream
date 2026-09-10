@@ -8,11 +8,9 @@ class StreamRange {
   const StreamRange._(this.range, this.sourceLength);
 
   factory StreamRange(IntRange range, int? sourceLength) {
-    if (sourceLength != null && range.upperBound > sourceLength) {
-      range = IntRange(range.start, sourceLength - 1);
-      // throw RangeError.range(range.upperBound, 0, sourceLength, 'range end');
-    }
-    return StreamRange._(range, sourceLength);
+    final validatedRange =
+        IntRange.validate(range.start, range.end, sourceLength);
+    return StreamRange._(validatedRange, sourceLength);
   }
 
   static StreamRange validate(int? start, int? end, int? sourceLength) {

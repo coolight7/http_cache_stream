@@ -82,11 +82,17 @@ class LocalCacheServer {
 
   Uri encodeSourceUrl(Uri sourceUrl) {
     if (sourceUrl.host == serverUri.host) {
-      if (!validateCacheUrl(sourceUrl)) {
-        throw ArgumentError(
-            'Invalid source URL: $sourceUrl. The host matches the cache server host but the URL is not a valid cache URL.');
+      if (validateCacheUrl(sourceUrl)) {
+        return sourceUrl; // Already encoded for this server.
       }
-      return sourceUrl; //Already encoded
+      // A cache server may be assigned a different port between runs. Decode a
+      // URL produced by an earlier instance before encoding it for this one.
+      // Requiring the cache server's scheme and a different port lets regular
+      // source URLs hosted by another local server pass through unchanged.
+      if (sourceUrl.scheme == serverUri.scheme &&
+          sourceUrl.port != serverUri.port) {
+        sourceUrl = decodeSourceUrl(sourceUrl) ?? sourceUrl;
+      }
     }
 
     final defaultPort = switch (sourceUrl.scheme) {

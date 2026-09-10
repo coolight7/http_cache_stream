@@ -71,7 +71,9 @@ class HttpCacheManager {
 
     ///Remove when stream is disposed
     cacheStream.future.onComplete(() {
-      _streams.remove(requestKey);
+      if (identical(_streams[requestKey], cacheStream)) {
+        _streams.remove(requestKey);
+      }
     });
 
     if (_onStreamCreated case final streamCreatedCallback?) {
