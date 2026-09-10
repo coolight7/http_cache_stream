@@ -43,7 +43,7 @@ class ReadTimedOutException extends DownloadException
 /// Thrown when a paused download does not resume within the configured timeout.
 /// This exception is intentional - it prevents a paused download from hanging indefinitely.
 class DownloadPausedException extends DownloadException
-    implements TimeoutException, http.ClientException {
+    implements TimeoutException {
   @override
   final Duration duration;
   DownloadPausedException(Uri uri, this.duration)
